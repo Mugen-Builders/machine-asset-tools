@@ -4,5 +4,5 @@ The Cartesi Machine Assets is a C++ library to facilitate the creation and manag
 
 The API is divided into two main components
 
-- decoder: provides functions for common asset operations such as decoding operations and encoding deposits, withdrawals, and transfers.
+- parser: provides functions for common asset operations such as decoding operations and encoding deposits, withdrawals, and transfers.
 - ledger: provides functions for managing asset ledgers and performing operations such as deposits, withdrawals, and transfers.
