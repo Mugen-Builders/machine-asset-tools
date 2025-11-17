@@ -43,13 +43,13 @@
 // TransferErc1155Batch(address,bytes32,uint256[],uint256[],bytes) = 638ac6f9
 #define TRANSFER_ERC1155_BATCH CMT_ABI_FUNSEL(0x63, 0x8a, 0xc6, 0xf9)
 
-// Bytecode for solidity 'transfer(address,uint256)'
+// Bytecode for solidity transfer(address,uint256) = a9059cbb
 #define ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL                                \
   CMT_ABI_FUNSEL(0xa9, 0x05, 0x9c, 0xbb)
 
-// Bytecode for solidity safeTransferFrom(address,address,uint256) = a9059cbb
+// Bytecode for solidity safeTransferFrom(address,address,uint256) = 42842e0e
 #define ERC721_TRANSFER_FUNCTION_SELECTOR_FUNSEL                               \
-  CMT_ABI_FUNSEL(0xa9, 0x05, 0x9c, 0xbb)
+  CMT_ABI_FUNSEL(0x42, 0x84, 0x2e, 0x0e)
 
 // Bytecode for solidity
 // safeTransferFrom(address,address,uint256,uint256,bytes) = f242432a
@@ -290,14 +290,6 @@ cma_decode_erc1155_single_transfer(const cmt_rollup_advance_t *input,
 cma_parser_error_t
 cma_decode_erc1155_batch_transfer(const cmt_rollup_advance_t *input,
                                   cma_parser_request_t *request);
-// decode erc1155 single withdrawal request
-cma_parser_error_t
-cma_decode_erc1155_single_withdrawal(const cmt_rollup_advance_t *input,
-                                     cma_parser_request_t *request);
-// decode erc1155 batch withdrawal request
-cma_parser_error_t
-cma_decode_erc1155_batch_withdrawal(const cmt_rollup_advance_t *input,
-                                    cma_parser_request_t *request);
 
 // decode balance request
 cma_parser_error_t cma_decode_balance(const cmt_rollup_inspect_t *input,
@@ -320,19 +312,22 @@ cma_encode_erc20_withdrawal(const cma_abi_address_t *wallet_address,
 // encode erc721 withdrawal voucher
 cma_parser_error_t
 cma_encode_erc721_withdrawal(const cma_abi_address_t *wallet_address,
-                             const cma_amount_t *amount,
+                             const cma_token_id_t *token_id,
                              cma_voucher_t *voucher);
 
 // encode erc1155 single withdrawal voucher
 cma_parser_error_t
 cma_encode_erc1155_single_withdrawal(const cma_abi_address_t *wallet_address,
                                      const cma_amount_t *amount,
+                                     const cma_token_id_t *token_id,
                                      cma_voucher_t *voucher);
 
 // encode erc1155 batch withdrawal voucher
 cma_parser_error_t
 cma_encode_erc1155_batch_withdrawal(const cma_abi_address_t *wallet_address,
-                                    const cma_amount_t *amount,
+                                    size_t count,
+                                    const cma_amount_t *amounts,
+                                    const cma_token_id_t *token_ids,
                                     cma_voucher_t *voucher);
 
 #endif // CMA_PARSER_H
