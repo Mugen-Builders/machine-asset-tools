@@ -1,5 +1,5 @@
 
-CC := $(TOOLCHAIN_PREFIX)gcc
+CC := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
 CFLAGS += -Wvla -O2 -g -Wall -Wextra -Iinclude \
           -fno-strict-aliasing -fno-strict-overflow -fPIC
@@ -62,13 +62,13 @@ test: $(unittests_BINS)
 LINTER_IGNORE_SOURCES=
 LINTER_IGNORE_HEADERS=
 LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.c) $(wildcard tests/*.c)))
-LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcam/*.h)))
+LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcma/*.h)))
 
 CLANG_TIDY=clang-tidy
 CLANG_TIDY_TARGETS=$(patsubst %.c,%.clang-tidy,$(LINTER_SOURCES))
 
 CLANG_FORMAT=clang-format
-CLANG_FORMAT_FILES:=$(wildcard src/*.c) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard tools/*.c) $(wildcard include/libcam/*.h)
+CLANG_FORMAT_FILES:=$(wildcard src/*.c) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard tools/*.c) $(wildcard include/libcma/*.h)
 CLANG_FORMAT_IGNORE_FILES:=
 CLANG_FORMAT_FILES:=$(strip $(CLANG_FORMAT_FILES))
 CLANG_FORMAT_FILES:=$(filter-out $(CLANG_FORMAT_IGNORE_FILES),$(strip $(CLANG_FORMAT_FILES)))
