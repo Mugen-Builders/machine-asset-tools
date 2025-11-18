@@ -20,7 +20,6 @@ typedef enum {
     CMA_LEDGER_ERROR_UNKNOWN = -1007
 } cma_ledger_error_t;
 
-
 enum cma_ledger_account_creation_type_t {
     CMA_LEDGER_ACCOUNT_CREATION_TYPE_SEQUENTIAL,
     CMA_LEDGER_ACCOUNT_CREATION_TYPE_ACCOUNT,
@@ -51,40 +50,43 @@ cma_ledger_error_t ledger_fini(cma_ledger_t *ledger);
 cma_ledger_error_t cma_ledger_load(cma_ledger_t *ledger, const char *filepath);
 cma_ledger_error_t cma_ledger_save(cma_ledger_t *ledger, const char *filepath);
 
-// Asset management
+// Create a new asset for the given token and
+// update the token (address, token id) ->
+// asset_id mapping
 cma_ledger_error_t ledger_asset_create(cma_ledger_t *ledger, cma_ledger_asset_t *asset);
-                                // Create a new asset for the given token and
-                                // update the token (address, token id) ->
-                                // asset_id mapping
 
+// Retrieve an asset
+// If id is defined, fill with the asset details, otherwise fill with id
 cma_ledger_error_t ledger_asset_retrieve(const cma_ledger_t *ledger, cma_ledger_asset_t *asset);
-                                // Retrieve an asset
-                                // If id is defined, fill with the asset details, otherwise fill with id
 
-// Account management
-cma_ledger_error_t ledger_account_create(cma_ledger_t *ledger, cma_ledger_account_creation_type_t creation_type, cma_ledger_account_t *account);
-                                // Create a new account for the given account
-                                // and update the account -> account_id mapping (if any)
+// Create a new account for the given account
+// and update the account -> account_id mapping (if any)
+cma_ledger_error_t ledger_account_create(cma_ledger_t *ledger, cma_ledger_account_creation_type_t creation_type,
+    cma_ledger_account_t *account);
 
+// Retrieve an account
+// If id is defined, fill with the account details, otherwise fill with id
 cma_ledger_error_t ledger_account_retrieve(const cma_ledger_t *ledger, cma_ledger_account_t *account);
-                                // Retrieve an account
-                                // If id is defined, fill with the account details, otherwise fill with id
 
 // Deposit
-cma_ledger_error_t ledger_deposit(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id, const cma_amount_t *amount);
+cma_ledger_error_t ledger_deposit(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
+    cma_ledger_account_id_t to_account_id, const cma_amount_t *amount);
 
 // Withdrawal
-cma_ledger_error_t ledger_withdrawal(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t from_account_id, const cma_amount_t *amount);
+cma_ledger_error_t ledger_withdrawal(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
+    cma_ledger_account_id_t from_account_id, const cma_amount_t *amount);
 
 // Transfer
-cma_ledger_error_t ledger_transfer(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t from_account_id, cma_ledger_account_id_t to_account_id,
-    const cma_amount_t *amount);
+cma_ledger_error_t ledger_transfer(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
+    cma_ledger_account_id_t from_account_id, cma_ledger_account_id_t to_account_id, const cma_amount_t *amount);
 
 // Get balance
-cma_ledger_error_t ledger_get_balance(const cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id, cma_amount_t *out_balance);
+cma_ledger_error_t ledger_get_balance(const cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
+    cma_ledger_account_id_t account_id, cma_amount_t *out_balance);
 
 // Get total supply
-cma_ledger_error_t ledger_get_total_supply(const cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_amount_t *out_total_supply);
+cma_ledger_error_t ledger_get_total_supply(const cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
+    cma_amount_t *out_total_supply);
 
 // get error message
 const char *cma_ledger_get_error_message(cma_ledger_error_t error);
