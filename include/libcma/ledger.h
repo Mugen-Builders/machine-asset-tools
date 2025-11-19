@@ -51,8 +51,7 @@ cma_ledger_error_t cma_ledger_load(cma_ledger_t *ledger, const char *filepath);
 cma_ledger_error_t cma_ledger_save(cma_ledger_t *ledger, const char *filepath);
 
 // Create a new asset for the given token and
-// update the token (address, token id) ->
-// asset_id mapping
+// update the token (address, token id) -> asset_id mapping
 cma_ledger_error_t ledger_asset_create(cma_ledger_t *ledger, cma_ledger_asset_t *asset);
 
 // Retrieve an asset

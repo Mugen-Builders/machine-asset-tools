@@ -41,25 +41,26 @@ enum {
     ERC1155_BATCH_TRANSFER_FUNCTION_SELECTOR_FUNSEL = 0x2eb2c2d6,
 };
 
-enum cma_parser_request_type_t {
-    CMA_PARSER_REQUEST_TYPE_NONE,
-    CMA_PARSER_REQUEST_TYPE_ETHER_DEPOSIT,
-    CMA_PARSER_REQUEST_TYPE_ERC20_DEPOSIT,
-    CMA_PARSER_REQUEST_TYPE_ERC721_DEPOSIT,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_SINGLE_DEPOSIT,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_BATCH_DEPOSIT,
-    CMA_PARSER_REQUEST_TYPE_ETHER_WITHDRAWAL,
-    CMA_PARSER_REQUEST_TYPE_ERC20_WITHDRAWAL,
-    CMA_PARSER_REQUEST_TYPE_ERC721_WITHDRAWAL,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_SINGLE_WITHDRAWAL,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_BATCH_WITHDRAWAL,
-    CMA_PARSER_REQUEST_TYPE_ETHER_TRANSFER,
-    CMA_PARSER_REQUEST_TYPE_ERC20_TRANSFER,
-    CMA_PARSER_REQUEST_TYPE_ERC721_TRANSFER,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_SINGLE_TRANSFER,
-    CMA_PARSER_REQUEST_TYPE_ERC1155_BATCH_TRANSFER,
-    CMA_PARSER_REQUEST_TYPE_BALANCE,
-    CMA_PARSER_REQUEST_TYPE_SUPPLY,
+enum cma_parser_input_type_t {
+    CMA_PARSER_INPUT_TYPE_NONE,
+    CMA_PARSER_INPUT_TYPE_AUTO,
+    CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT,
+    CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT,
+    CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT,
+    CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT,
+    CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT,
+    CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL,
+    CMA_PARSER_INPUT_TYPE_ERC20_WITHDRAWAL,
+    CMA_PARSER_INPUT_TYPE_ERC721_WITHDRAWAL,
+    CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL,
+    CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL,
+    CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER,
+    CMA_PARSER_INPUT_TYPE_ERC20_TRANSFER,
+    CMA_PARSER_INPUT_TYPE_ERC721_TRANSFER,
+    CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER,
+    CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER,
+    CMA_PARSER_INPUT_TYPE_BALANCE,
+    CMA_PARSER_INPUT_TYPE_SUPPLY,
 };
 
 struct cma_parser_ether_deposit_t {
@@ -169,8 +170,8 @@ struct cma_parser_supply_t {
     cma_abi_bytes_t exec_layer_data;
 };
 
-typedef struct cma_parser_request {
-    enum cma_parser_request_type_t type;
+typedef struct cma_parser_input {
+    enum cma_parser_input_type_t type;
     union {
         struct cma_parser_ether_deposit_t ether_deposit;
         struct cma_parser_erc20_deposit_t erc20_deposit;
@@ -190,7 +191,7 @@ typedef struct cma_parser_request {
         struct cma_parser_balance_t balance;
         struct cma_parser_supply_t supply;
     } u;
-} cma_parser_request_t;
+} cma_parser_input_t;
 
 enum cma_parser_voucher_type_t {
     CMA_PARSER_VOUCHER_TYPE_NONE,
@@ -225,8 +226,8 @@ struct cma_parser_erc1155_batch_voucher_fields_t {
     cma_amount_t *amounts;
 };
 
-typedef struct cma_parser_voucher_request {
-    enum cma_parser_voucher_type_t type;
+typedef struct cma_parser_voucher_data {
+    cma_abi_address_t *receiver;
     union {
         struct cma_parser_ether_voucher_fields_t ether_voucher_fields;
         struct cma_parser_erc20_voucher_fields_t erc20_voucher_fields;
@@ -234,7 +235,7 @@ typedef struct cma_parser_voucher_request {
         struct cma_parser_erc1155_single_voucher_fields_t erc1155_single_voucher_fields;
         struct cma_parser_erc1155_batch_voucher_fields_t erc1155_batch_voucher_fields;
     } u;
-} cma_parser_voucher_request_t;
+} cma_parser_voucher_data_t;
 
 typedef struct cma_voucher {
     cmt_abi_address_t address;
@@ -242,26 +243,24 @@ typedef struct cma_voucher {
     cmt_abi_bytes_t data;
 } cma_voucher_t;
 
-typedef enum { CMA_PARSER_SUCCESS = 0, CMA_PARSER_ERROR_UNKNOWN = 2001 } cma_parser_error_t;
-
-typedef cma_bytes32_t cma_request_type_t;
-typedef cma_bytes32_t cma_vouchert_type_t;
-
-// decode request
-// Note: app's responsability to identify deposits (returns error if it is not  withdrawal or  transfer)
-cma_parser_error_t cma_parser_rollup(const cmt_rollup_t *rollup, cma_parser_request_t *request);
+typedef enum {
+    CMA_PARSER_SUCCESS = 0,
+    CMA_PARSER_ERROR_INCOMPATIBLE_INPUT = -2001,
+    CMA_PARSER_ERROR_MALFORMED_INPUT = -2002,
+    CMA_PARSER_ERROR_UNKNOWN = -2003,
+} cma_parser_error_t;
 
 // decode advance
-cma_parser_error_t cma_decode_advance(cma_request_type_t request_type, const cmt_rollup_advance_t *input,
-    cma_parser_request_t *request);
+cma_parser_error_t cma_decode_advance(cma_parser_input_type_t type, const cmt_rollup_advance_t *input,
+    cma_parser_input_t *parser_input);
 
 // decode inspect
-cma_parser_error_t cma_decode_inspect(cma_request_type_t request_type, const cmt_rollup_inspect_t *input,
-    cma_parser_request_t *request);
+cma_parser_error_t cma_decode_inspect(cma_parser_input_type_t type, const cmt_rollup_inspect_t *input,
+    cma_parser_input_t *parser_input);
 
 // encode voucher
-cma_parser_error_t cma_encode_voucher(const cma_abi_address_t *address,
-    const cma_parser_voucher_request_t *voucher_request, cma_voucher_t *voucher);
+cma_parser_error_t cma_encode_voucher(cma_parser_voucher_type_t type, cma_abi_address_t *app_address,
+    const cma_parser_voucher_data_t *voucher_request, cma_voucher_t *voucher);
 
 // get error message
 const char *cma_parser_get_error_message(cma_parser_error_t error);
