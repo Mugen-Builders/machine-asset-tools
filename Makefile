@@ -3,18 +3,15 @@ CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
 CFLAGS += -Wvla -O2 -g -Wall -Wextra -Iinclude \
-          	-fno-strict-aliasing -fno-strict-overflow -fPIC
+          	-fno-strict-aliasing -fno-strict-overflow
 # C++ warning flags
 WARN_CXXFLAGS = -Wall -Wextra -Iinclude -Wpedantic -Wformat \
 			-Werror=format-security -Wno-missing-field-initializers
 
-# C++ optimization flags, use -O1 to be safe of GCC compiler optimizer bugs
-OPT_CXXFLAGS = -O1
+OPT_CXXFLAGS = -O2
 
 CXXFLAGS += \
 	-std=c++20 \
-	-fexceptions \
-	-fPIC \
 	$(WARN_CXXFLAGS) \
 	$(OPT_CXXFLAGS)
 
@@ -24,10 +21,7 @@ HARDEN_CXXFLAGS = \
 	-fno-strict-aliasing \
 	-fno-strict-overflow
 
-HARDEN2_CXXFLAGS = \
-	-fno-rtti
-
-LIBCMA_CFLAGS += -ftrivial-auto-var-init=zero -Wstrict-aliasing=3
+LIBCMA_CFLAGS += -Wstrict-aliasing=3 -fPIC
 
 # Current architecture
 ARCH := $(shell uname -m)
@@ -60,7 +54,7 @@ libcma_SO        := $(libcma_OBJDIR)/libcma.so
 
 $(libcma_OBJ): $(libcma_OBJDIR)/%.o: %.cpp
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) $(HARDEN2_CXXFLAGS) $(LIBCMA_CFLAGS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(libcma_LIB): $(libcma_OBJ)
 	$(AR) rcs $@ $^
@@ -78,11 +72,14 @@ unittests_BINS := \
 	$(test_OBJDIR)/parser
 
 $(test_OBJDIR)/%: $(test_OBJDIR)/%.o $(libcma_LIB)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -lstdc++ -o $@ $^
 
 $(test_OBJDIR)/%.o: tests/%.c
 	mkdir -p $(test_OBJDIR)
 	$(CC) $(CFLAGS) -o $@ -c $^
+
+# $(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
+# 	$(CC) $(CFLAGS) -lstdc++ -o $@ $^
 
 test: $(unittests_BINS)
 	$(foreach test,$(unittests_BINS),$(test) &&) true
@@ -90,42 +87,42 @@ test: $(unittests_BINS)
 test-%: $(test_OBJDIR)/%
 	./$<
 
-# #-------------------------------------------------------------------------------
-# LINTER_IGNORE_SOURCES=
-# LINTER_IGNORE_HEADERS=
-# LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c)))
-# LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcma/*.h)))
+#-------------------------------------------------------------------------------
+LINTER_IGNORE_SOURCES=
+LINTER_IGNORE_HEADERS=
+LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c)))
+LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcma/*.h)))
 
-# CLANG_TIDY=clang-tidy
-# CLANG_TIDY_TARGETS=$(patsubst %.cpp,%.clang-tidy,$(LINTER_SOURCES))
+CLANG_TIDY=clang-tidy
+CLANG_TIDY_TARGETS=$(patsubst %.cpp,%.clang-tidy,$(LINTER_SOURCES))
 
-# CLANG_FORMAT=clang-format
-# CLANG_FORMAT_FILES:=$(wildcard src/*.cpp) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard tools/*.c) $(wildcard include/libcma/*.h)
-# CLANG_FORMAT_IGNORE_FILES:=
-# CLANG_FORMAT_FILES:=$(strip $(CLANG_FORMAT_FILES))
-# CLANG_FORMAT_FILES:=$(filter-out $(CLANG_FORMAT_IGNORE_FILES),$(strip $(CLANG_FORMAT_FILES)))
+CLANG_FORMAT=clang-format
+CLANG_FORMAT_FILES:=$(wildcard src/*.cpp) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard tools/*.c) $(wildcard include/libcma/*.h)
+CLANG_FORMAT_IGNORE_FILES:=
+CLANG_FORMAT_FILES:=$(strip $(CLANG_FORMAT_FILES))
+CLANG_FORMAT_FILES:=$(filter-out $(CLANG_FORMAT_IGNORE_FILES),$(strip $(CLANG_FORMAT_FILES)))
 
-# EMPTY:=
-# SPACE:=$(EMPTY) $(EMPTY)
-# CLANG_TIDY_HEADER_FILTER=$(CURDIR)/($(subst $(SPACE),|,$(LINTER_HEADERS)))
+EMPTY:=
+SPACE:=$(EMPTY) $(EMPTY)
+CLANG_TIDY_HEADER_FILTER=$(CURDIR)/($(subst $(SPACE),|,$(LINTER_HEADERS)))
 
-# %.clang-tidy: %.cpp
-# 	@$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CFLAGS) 2>/dev/null
-# 	@$(CC) $(CFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
-# 	@touch $@
+%.clang-tidy: %.cpp
+	@$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CFLAGS) 2>/dev/null
+	@$(CC) $(CFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
+	@touch $@
 
-# clangd-config:
-# 	@echo "$(CFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
+clangd-config:
+	@echo "$(CFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
 
-# format:
-# 	@$(CLANG_FORMAT) -i $(CLANG_FORMAT_FILES)
+format:
+	@$(CLANG_FORMAT) -i $(CLANG_FORMAT_FILES)
 
-# check-format:
-# 	@$(CLANG_FORMAT) -Werror --dry-run $(CLANG_FORMAT_FILES)
+check-format:
+	@$(CLANG_FORMAT) -Werror --dry-run $(CLANG_FORMAT_FILES)
 
-# lint: $(CLANG_TIDY_TARGETS)
+lint: $(CLANG_TIDY_TARGETS)
 
-# #-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 endif
 

@@ -12,6 +12,8 @@ extern "C" {
  * Exception Management
  */
 
+namespace {
+
 static std::string &get_last_err_msg_storage() {
     static thread_local std::string last_err_msg;
     return last_err_msg;
@@ -41,39 +43,46 @@ int cma_ledger_result_success() {
     return CMA_LEDGER_SUCCESS;
 }
 
+} // namespace
+
 /*
  * Ledger Api
  */
 
-int cma_ledger_init(cma_ledger_t **ledger) try {
-    *ledger = new cma_ledger_t();
+static_assert(sizeof(cma_ledger_t) >= sizeof(cma_ledger));
+static_assert(alignof(cma_ledger_t) == alignof(cma_ledger));
 
+int cma_ledger_init(cma_ledger_t *ledger) try {
+    new (ledger) cma_ledger();
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
 }
 
-int cma_ledger_fini(cma_ledger_t **ledger) try {
-    if (!ledger || !*ledger) {
+int cma_ledger_fini(cma_ledger_t *ledger) try {
+    if (!ledger) {
+        throw LedgerException("Invalid ledger", -EINVAL);
+    }
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
-
-    delete *ledger;
-    *ledger = nullptr;
+    ledger_ptr->~cma_ledger();
     return cma_ledger_result_success();
 } catch (...) {
-    if (ledger != nullptr) {
-        *ledger = nullptr;
-    }
     return cma_ledger_result_failure();
 }
 
 int cma_ledger_reset(cma_ledger_t *ledger) try {
     if (!ledger) {
+        throw LedgerException("Invalid ledger", -EINVAL);
+    }
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
 
-    ledger->clear();
+    ledger_ptr->clear();
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -84,7 +93,11 @@ int cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asset
     if (!ledger) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
-    ledger->retrieve_create_asset(asset_id, token_address, token_id, asset_type, op);
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->retrieve_create_asset(asset_id, token_address, token_id, asset_type, op);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -96,8 +109,12 @@ int cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *a
     if (!ledger) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
 
-    ledger->retrieve_create_account(account_id, account, addr_accid, account_type, op);
+    ledger_ptr->retrieve_create_account(account_id, account, addr_accid, account_type, op);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -111,7 +128,11 @@ int cma_ledger_get_total_supply(cma_ledger_t *ledger, cma_ledger_asset_id_t asse
     if (!out_total_supply) {
         throw LedgerException("Invalid total supply ptr", -EINVAL);
     }
-    if (!ledger->find_asset(asset_id, nullptr, nullptr, out_total_supply)) {
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    if (!ledger_ptr->find_asset(asset_id, nullptr, nullptr, out_total_supply)) {
         throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
@@ -128,35 +149,47 @@ int cma_ledger_get_balance(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
     if (!out_balance) {
         throw LedgerException("Invalid out balance ptr", -EINVAL);
     }
-    ledger->get_account_asset_balance(asset_id, account_id, *out_balance);
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->get_account_asset_balance(asset_id, account_id, *out_balance);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
 }
 
 int cma_ledger_deposit(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,
-    const cma_amount_t *amount) try {
+    const cma_amount_t *deposit) try {
     if (!ledger) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
-    if (!amount) {
-        throw LedgerException("Invalid amount ptr", -EINVAL);
+    if (!deposit) {
+        throw LedgerException("Invalid deposit ptr", -EINVAL);
     }
-    ledger->deposit(asset_id, to_account_id, *amount);
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->deposit(asset_id, to_account_id, *deposit);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
 }
 
 int cma_ledger_withdraw(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t from_account_id,
-    const cma_amount_t *amount) try {
+    const cma_amount_t *withdrawal) try {
     if (!ledger) {
         throw LedgerException("Invalid ledger ptr", -EINVAL);
     }
-    if (!amount) {
-        throw LedgerException("Invalid amount ptr", -EINVAL);
+    if (!withdrawal) {
+        throw LedgerException("Invalid withdrawal ptr", -EINVAL);
     }
-    ledger->withdraw(asset_id, from_account_id, *amount);
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->withdraw(asset_id, from_account_id, *withdrawal);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -170,7 +203,11 @@ int cma_ledger_transfer(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cm
     if (!amount) {
         throw LedgerException("Invalid amount ptr", -EINVAL);
     }
-    ledger->transfer(asset_id, from_account_id, to_account_id, *amount);
+    cma_ledger *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw LedgerException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->transfer(asset_id, from_account_id, to_account_id, *amount);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();

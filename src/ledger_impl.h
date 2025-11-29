@@ -8,14 +8,21 @@ extern "C" {
 #include "libcma/ledger.h"
 }
 
-#define CMA_ABI_ADDRESS_LENGTH CMT_ABI_ADDRESS_LENGTH
-#define CMA_ABI_U256_LENGTH CMT_ABI_U256_LENGTH
-#define CMA_ABI_ID_LENGTH CMT_ABI_U256_LENGTH
+enum {
+    CMA_ABI_ADDRESS_LENGTH = CMT_ABI_ADDRESS_LENGTH,
+    CMA_ABI_U256_LENGTH = CMT_ABI_U256_LENGTH,
+    CMA_ABI_ID_LENGTH = CMT_ABI_U256_LENGTH,
 
-#define CMA_LEDGER_ASSET_TYPE_SIZE 1
-#define CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND 0
-#define CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND + CMA_LEDGER_ASSET_TYPE_SIZE
-#define CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND + CMA_ABI_ADDRESS_LENGTH
+    CMA_LEDGER_ASSET_TYPE_SIZE = 1,
+    CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND = 0,
+    CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND = CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND + CMA_LEDGER_ASSET_TYPE_SIZE,
+    CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND = CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND + CMA_ABI_ADDRESS_LENGTH,
+
+};
+
+enum : uint64_t {
+    CMA_LEDGER_MAGIC = 0x6de6c7b338afbad6,
+};
 
 // Custom exception class
 class LedgerException : public std::exception {
@@ -28,7 +35,7 @@ public:
     LedgerException(const std::string &msg, int code) : message(msg), errorCode(code) {}
 
     // Override the what() method to return the error message
-    virtual const char *what() const noexcept override {
+    const char *what() const noexcept override {
         return message.c_str();
     }
 
@@ -38,7 +45,7 @@ public:
     }
 };
 
-typedef struct cma_ledger_asset_struct {
+using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
     cma_ledger_asset_type_t type;
     cma_token_address_t token_address;
     cma_token_id_t token_id;
@@ -52,7 +59,7 @@ typedef struct cma_ledger_asset_struct {
     //         memcmp(&token_id.data, &other.token_id.data, sizeof(token_id.data)) == 0 &&
     //         memcmp(&supply.data, &other.supply.data, sizeof(supply.data)) == 0;
     // }
-} cma_ledger_asset_struct_t;
+};
 
 // bool operator==(const bytes32_t &a, const bytes32_t &b) {
 //     return std::equal(std::begin(a.data), std::end(a.data), std::begin(b.data));
@@ -64,20 +71,21 @@ typedef struct cma_ledger_asset_struct {
 //     return a.type == b.type && memcmp(&a.account_id.data, &b.account_id.data, sizeof(a.account_id.data)) == 0;
 // }
 
-typedef uint8_t cma_ledger_asset_key_bytes_t[CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH];
-typedef std::string cma_ledger_asset_key_t;
-typedef std::string cma_ledger_account_key_t;
+using cma_ledger_asset_key_bytes_t = uint8_t[CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH];
+using cma_ledger_asset_key_t = std::string;
+using cma_ledger_account_key_t = std::string;
 
-typedef std::pair<cma_ledger_account_id_t, cma_ledger_asset_id_t> cma_map_key_t;
+using cma_map_key_t = std::pair<cma_ledger_account_id_t, cma_ledger_asset_id_t>;
 
-typedef boost::unordered_map<cma_ledger_asset_id_t, cma_ledger_asset_struct_t> lassid_to_asset_t;
-typedef boost::unordered_map<cma_ledger_asset_key_t, cma_ledger_asset_id_t> asset_to_lassid_t;
-typedef boost::unordered_map<cma_ledger_account_id_t, cma_ledger_account_t> laccid_to_account_t;
-typedef boost::unordered_map<cma_ledger_account_key_t, cma_ledger_account_id_t> account_to_laccid_t;
-typedef boost::unordered_map<cma_map_key_t, cma_amount_t, boost::hash<cma_map_key_t> > account_asset_map_t;
+using lassid_to_asset_t = boost::unordered_map<cma_ledger_asset_id_t, cma_ledger_asset_struct_t>;
+using asset_to_lassid_t = boost::unordered_map<cma_ledger_asset_key_t, cma_ledger_asset_id_t>;
+using laccid_to_account_t = boost::unordered_map<cma_ledger_account_id_t, cma_ledger_account_t>;
+using account_to_laccid_t = boost::unordered_map<cma_ledger_account_key_t, cma_ledger_account_id_t>;
+using account_asset_map_t = boost::unordered_map<cma_map_key_t, cma_amount_t, boost::hash<cma_map_key_t> >;
 
 class cma_ledger {
 private:
+    uint64_t magic;
     lassid_to_asset_t lassid_to_asset;
     asset_to_lassid_t asset_to_lassid;
     laccid_to_account_t laccid_to_account;
@@ -85,13 +93,14 @@ private:
     account_asset_map_t account_asset_balance;
 
 public:
-    // cma_ledger() : account_to_laccid_test() {}
     cma_ledger() :
+        magic(CMA_LEDGER_MAGIC),
         lassid_to_asset(),
         asset_to_lassid(),
         laccid_to_account(),
         account_to_laccid(),
         account_asset_balance() {}
+    bool is_initialized() const;
     void clear();
 
     size_t get_asset_count();

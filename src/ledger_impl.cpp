@@ -16,6 +16,10 @@ extern "C" {
  * Ledger class
  */
 
+bool cma_ledger::is_initialized() const {
+    return magic == CMA_LEDGER_MAGIC;
+}
+
 void cma_ledger::clear() {
     account_to_laccid.clear();
     laccid_to_account.clear();
@@ -104,6 +108,7 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                 }
 
                 *asset_id = curr_size;
+                delete new_asset;
             }
             break;
         }
@@ -160,6 +165,7 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                 if (asset_id != nullptr) {
                     *asset_id = curr_size;
                 }
+                delete new_asset;
             }
             break;
         }
@@ -222,6 +228,7 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                 if (asset_id != nullptr) {
                     *asset_id = curr_size;
                 }
+                delete new_asset;
             }
             break;
         }
@@ -282,6 +289,7 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                 }
 
                 *account_id = curr_size;
+                delete new_account;
             }
             break;
         }
