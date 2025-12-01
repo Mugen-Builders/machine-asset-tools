@@ -71,15 +71,13 @@ unittests_BINS := \
 	$(test_OBJDIR)/ledger \
 	$(test_OBJDIR)/parser
 
-$(test_OBJDIR)/%: $(test_OBJDIR)/%.o $(libcma_LIB)
-	$(CXX) $(CXXFLAGS) -lstdc++ -o $@ $^
-
-$(test_OBJDIR)/%.o: tests/%.c
+$(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
 	mkdir -p $(test_OBJDIR)
-	$(CC) $(CFLAGS) -o $@ -c $^
+	$(CC) $(CFLAGS) -o $@ $^ -lstdc++
 
-# $(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
-# 	$(CC) $(CFLAGS) -lstdc++ -o $@ $^
+# Note: To compile and use shared libcma.so use:
+# $(CC) $(CFLAGS) -o $@ $^ -lstdc++ -L$(libcma_OBJDIR) -lcma
+# LD_LIBRARY_PATH=$(libcma_OBJDIR) ./$<
 
 test: $(unittests_BINS)
 	$(foreach test,$(unittests_BINS),$(test) &&) true

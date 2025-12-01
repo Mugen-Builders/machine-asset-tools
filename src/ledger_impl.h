@@ -1,8 +1,8 @@
 #ifndef CMA_LEDGER_IMPL_H
 #define CMA_LEDGER_IMPL_H
 
-#include <boost/functional/hash.hpp> // For boost::hash
-#include <boost/unordered_map.hpp>
+#include <string> // for string class
+#include <unordered_map>
 
 extern "C" {
 #include "libcma/ledger.h"
@@ -71,17 +71,26 @@ using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
 //     return a.type == b.type && memcmp(&a.account_id.data, &b.account_id.data, sizeof(a.account_id.data)) == 0;
 // }
 
+struct hash_pair {
+    template <class T1, class T2>
+    size_t operator()(const std::pair<T1, T2> &p) const {
+        size_t hash1 = std::hash<T1>{}(p.first);
+        size_t hash2 = std::hash<T2>{}(p.second);
+        return hash1 ^ (hash2 + 0x9e3779b9 + (hash1 << 6) + (hash1 >> 2));
+    }
+};
+
 using cma_ledger_asset_key_bytes_t = uint8_t[CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH];
 using cma_ledger_asset_key_t = std::string;
 using cma_ledger_account_key_t = std::string;
 
 using cma_map_key_t = std::pair<cma_ledger_account_id_t, cma_ledger_asset_id_t>;
 
-using lassid_to_asset_t = boost::unordered_map<cma_ledger_asset_id_t, cma_ledger_asset_struct_t>;
-using asset_to_lassid_t = boost::unordered_map<cma_ledger_asset_key_t, cma_ledger_asset_id_t>;
-using laccid_to_account_t = boost::unordered_map<cma_ledger_account_id_t, cma_ledger_account_t>;
-using account_to_laccid_t = boost::unordered_map<cma_ledger_account_key_t, cma_ledger_account_id_t>;
-using account_asset_map_t = boost::unordered_map<cma_map_key_t, cma_amount_t, boost::hash<cma_map_key_t> >;
+using lassid_to_asset_t = std::unordered_map<cma_ledger_asset_id_t, cma_ledger_asset_struct_t>;
+using asset_to_lassid_t = std::unordered_map<cma_ledger_asset_key_t, cma_ledger_asset_id_t>;
+using laccid_to_account_t = std::unordered_map<cma_ledger_account_id_t, cma_ledger_account_t>;
+using account_to_laccid_t = std::unordered_map<cma_ledger_account_key_t, cma_ledger_account_id_t>;
+using account_asset_map_t = std::unordered_map<cma_map_key_t, cma_amount_t, hash_pair>;
 
 class cma_ledger {
 private:
@@ -100,6 +109,7 @@ public:
         laccid_to_account(),
         account_to_laccid(),
         account_asset_balance() {}
+    ~cma_ledger();
     bool is_initialized() const;
     void clear();
 

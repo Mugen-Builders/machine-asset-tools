@@ -1,4 +1,3 @@
-#include <algorithm> // For std::fill
 #include <cerrno>
 #include <string> // for string class
 

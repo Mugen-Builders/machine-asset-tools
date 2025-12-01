@@ -1,9 +1,6 @@
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
-#include <cstring> // for memcmp, memcpy
-
-#include <boost/functional/hash.hpp> // For boost::hash
-#include <boost/unordered_map.hpp>
 
 extern "C" {
 #include "libcma/ledger.h"
@@ -15,6 +12,10 @@ extern "C" {
 /*
  * Ledger class
  */
+
+cma_ledger::~cma_ledger() {
+    magic = 0;
+}
 
 bool cma_ledger::is_initialized() const {
     return magic == CMA_LEDGER_MAGIC;
@@ -45,22 +46,24 @@ bool cma_ledger::find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t 
             break;
         case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS:
             if (token_address != nullptr)
-                std::ignore =
-                    memcpy(token_address->data, find_result->second.token_address.data, CMA_ABI_ADDRESS_LENGTH);
+                std::ignore = std::copy(find_result->second.token_address.data,
+                    find_result->second.token_address.data + CMA_ABI_ADDRESS_LENGTH, token_address->data);
             break;
         case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID:
             if (token_address != nullptr)
-                std::ignore =
-                    memcpy(token_address->data, find_result->second.token_address.data, CMA_ABI_ADDRESS_LENGTH);
+                std::ignore = std::copy(find_result->second.token_address.data,
+                    find_result->second.token_address.data + CMA_ABI_ADDRESS_LENGTH, token_address->data);
             if (token_id != nullptr)
-                std::ignore = memcpy(token_id->data, find_result->second.token_id.data, CMA_ABI_ID_LENGTH);
+                std::ignore = std::copy(find_result->second.token_id.data,
+                    find_result->second.token_id.data + CMA_ABI_ID_LENGTH, token_id->data);
             break;
         default:
             // shouldn't be here (wrongly added to map)
             throw LedgerException("Invalid asset type", -EINVAL);
     }
     if (supply != nullptr) {
-        std::ignore = memcpy(supply->data, find_result->second.supply.data, CMA_ABI_U256_LENGTH);
+        std::ignore = std::copy(find_result->second.supply.data, find_result->second.supply.data + CMA_ABI_U256_LENGTH,
+            supply->data);
     }
     return true;
 }
@@ -71,7 +74,7 @@ void cma_ledger::set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &
         throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
-    std::ignore = memcpy(find_result->second.supply.data, supply.data, CMA_ABI_U256_LENGTH);
+    std::ignore = std::copy(supply.data, supply.data + CMA_ABI_U256_LENGTH, find_result->second.supply.data);
 }
 
 void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
@@ -122,8 +125,8 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
             cma_ledger_asset_key_bytes_t asset_key_bytes = {};
             asset_key_bytes[CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND] = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-            std::ignore = memcpy(asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND, token_address->data,
-                CMA_ABI_ADDRESS_LENGTH);
+            std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
+                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND);
             size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
             cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
 
@@ -154,7 +157,8 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
                 cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-                std::ignore = memcpy(new_asset->token_address.data, token_address->data, CMA_ABI_ADDRESS_LENGTH);
+                std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
+                    new_asset->token_address.data);
                 std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
                     lassid_to_asset.insert({curr_size, *new_asset});
                 if (!insertion_result.second) {
@@ -182,10 +186,10 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
             cma_ledger_asset_key_bytes_t asset_key_bytes = {};
             asset_key_bytes[CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND] = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-            std::ignore = memcpy(asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND, token_address->data,
-                CMA_ABI_ADDRESS_LENGTH);
-            std::ignore =
-                memcpy(asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND, token_id->data, CMA_ABI_ID_LENGTH);
+            std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
+                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND);
+            std::ignore = std::copy(token_id->data, token_id->data + CMA_ABI_ID_LENGTH,
+                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND);
             size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
             cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
 
@@ -216,8 +220,9 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
                 cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
-                std::ignore = memcpy(new_asset->token_address.data, token_address->data, CMA_ABI_ADDRESS_LENGTH);
-                std::ignore = memcpy(new_asset->token_id.data, token_id->data, CMA_ABI_ID_LENGTH);
+                std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
+                    new_asset->token_address.data);
+                std::ignore = std::copy(token_id->data, token_id->data + CMA_ABI_ID_LENGTH, new_asset->token_id.data);
                 std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
                     lassid_to_asset.insert({curr_size, *new_asset});
                 if (!insertion_result.second) {
@@ -250,7 +255,8 @@ bool cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_acc
     // asset found
     if (account != nullptr) {
         account->type = find_result->second.type;
-        std::ignore = memcpy(account->account_id.data, find_result->second.account_id.data, CMA_ABI_ID_LENGTH);
+        std::ignore = std::copy(find_result->second.account_id.data,
+            find_result->second.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
     }
     return true;
 }
@@ -300,17 +306,20 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             cma_ledger_account_t account_local;
             if (addr_accid != nullptr) {
                 if (account_type == CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS) {
-                    std::ignore = memcpy(account_local.address.data,
-                        (static_cast<const cma_token_address_t *>(addr_accid))->data, CMA_ABI_ADDRESS_LENGTH);
+                    std::ignore = std::copy((static_cast<const cma_token_address_t *>(addr_accid))->data,
+                        (static_cast<const cma_token_address_t *>(addr_accid))->data + CMA_ABI_ADDRESS_LENGTH,
+                        account_local.address.data);
                 } else if (account_type == CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID) {
-                    std::ignore = memcpy(account_local.account_id.data,
-                        (static_cast<const cma_token_id_t *>(addr_accid))->data, CMA_ABI_ID_LENGTH);
+                    std::ignore = std::copy((static_cast<const cma_token_id_t *>(addr_accid))->data,
+                        (static_cast<const cma_token_id_t *>(addr_accid))->data + CMA_ABI_ID_LENGTH,
+                        account_local.account_id.data);
                 }
             } else {
                 if (account == nullptr) {
                     throw LedgerException("Invalid account ptr", -EINVAL);
                 }
-                std::ignore = memcpy(account_local.account_id.data, account->account_id.data, CMA_ABI_ID_LENGTH);
+                std::ignore = std::copy(account->account_id.data, account->account_id.data + CMA_ABI_ID_LENGTH,
+                    account_local.account_id.data);
             }
 
             // 1: look for account
@@ -333,8 +342,8 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                     }
                     if (account != nullptr) {
                         account->type = account_local.type;
-                        std::ignore =
-                            memcpy(account->account_id.data, account_local.account_id.data, CMA_ABI_ID_LENGTH);
+                        std::ignore = std::copy(account_local.account_id.data,
+                            account_local.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
                     }
                     return;
                 } else if (op == CMA_LEDGER_OP_FIND) {
@@ -364,7 +373,8 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                 }
                 if (account != nullptr) {
                     account->type = account_local.type;
-                    std::ignore = memcpy(account->account_id.data, account_local.account_id.data, CMA_ABI_ID_LENGTH);
+                    std::ignore = std::copy(account_local.account_id.data,
+                        account_local.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
                 }
             }
             break;
@@ -378,11 +388,11 @@ void cma_ledger::get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_l
     cma_amount_t &balance) {
     account_asset_map_t::iterator find_result = account_asset_balance.find({asset_id, to_account_id});
     if (find_result == account_asset_balance.end()) {
-        memset(&balance.data, 0, sizeof(balance));
+        std::fill(balance.data, balance.data + CMA_ABI_U256_LENGTH, (uint8_t) 0);
         return;
     }
 
-    std::ignore = memcpy(balance.data, find_result->second.data, CMA_ABI_U256_LENGTH);
+    std::ignore = std::copy(find_result->second.data, find_result->second.data + CMA_ABI_U256_LENGTH, balance.data);
 }
 
 void cma_ledger::set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,
@@ -394,7 +404,7 @@ void cma_ledger::set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_l
         return;
     }
 
-    std::ignore = memcpy(find_result->second.data, balance.data, CMA_ABI_U256_LENGTH);
+    std::ignore = std::copy(balance.data, balance.data + CMA_ABI_U256_LENGTH, find_result->second.data);
 }
 
 void cma_ledger::deposit(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,

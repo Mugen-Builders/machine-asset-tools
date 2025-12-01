@@ -12,7 +12,7 @@
 void test_init_and_fini(void) {
     assert(cma_ledger_fini(NULL) == -EINVAL);
 
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
 
     assert(cma_ledger_fini(&ledger) == -EINVAL);
 
@@ -26,7 +26,7 @@ void test_init_and_fini(void) {
 void test_init_and_reset(void) {
     assert(cma_ledger_reset(NULL) == -EINVAL);
 
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     cma_ledger_reset(&ledger);
     assert(cma_ledger_reset(&ledger) == -EINVAL);
 
@@ -35,23 +35,23 @@ void test_init_and_reset(void) {
     // add assets and accounts and test not empty
 
     cma_ledger_asset_id_t asset_id;
-    // assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, CMA_LEDGER_ASSET_TYPE_ID,
-    //            CMA_LEDGER_OP_FIND_OR_CREATE) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, CMA_LEDGER_ASSET_TYPE_ID,
+               CMA_LEDGER_OP_FIND_OR_CREATE) == CMA_LEDGER_SUCCESS);
 
     assert(asset_id == 0);
 
     // reset and test empty
     assert(cma_ledger_reset(&ledger) == CMA_LEDGER_SUCCESS);
 
-    // assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, CMA_LEDGER_ASSET_TYPE_ID, CMA_LEDGER_OP_FIND) ==
-    //     CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, CMA_LEDGER_ASSET_TYPE_ID, CMA_LEDGER_OP_FIND) ==
+        CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_asset_id(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(
@@ -86,7 +86,7 @@ void test_asset_id(void) {
 }
 
 void test_asset_with_token_address(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_asset(&ledger, NULL, NULL, NULL, CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS,
@@ -141,7 +141,7 @@ void test_asset_with_token_address(void) {
 }
 
 void test_asset_with_token_address_and_id(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_asset(&ledger, NULL, NULL, NULL, CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID,
@@ -212,7 +212,7 @@ void test_asset_with_token_address_and_id(void) {
 }
 
 void test_account_id(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, NULL, NULL, CMA_LEDGER_ACCOUNT_TYPE_ID, CMA_LEDGER_OP_FIND) ==
@@ -247,7 +247,7 @@ void test_account_id(void) {
 }
 
 void test_account_address(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, NULL, NULL, CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS,
@@ -347,7 +347,7 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCC
 }
 
 void test_account_full_id(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, NULL, NULL, CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID,
@@ -464,7 +464,7 @@ CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS)
 }
 
 void test_asset_total_supply_balance(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_id_t asset_id;
@@ -510,7 +510,7 @@ void test_asset_total_supply_balance(void) {
 }
 
 void test_deposit(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_deposit(&ledger, 1000, 1000, NULL) ==
@@ -610,7 +610,7 @@ void test_deposit(void) {
 }
 
 void test_withdraw(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_withdraw(&ledger, 1000, 1000, NULL) ==
@@ -708,7 +708,7 @@ void test_withdraw(void) {
 }
 
 void test_transfer(void) {
-    cma_ledger_t ledger = {};
+    cma_ledger_t ledger;
     assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_transfer(&ledger, 1000, 1000, 1001, NULL) ==
