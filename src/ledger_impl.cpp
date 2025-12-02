@@ -17,7 +17,7 @@ cma_ledger::~cma_ledger() {
     magic = 0;
 }
 
-bool cma_ledger::is_initialized() const {
+auto cma_ledger::is_initialized() const -> bool {
     return magic == CMA_LEDGER_MAGIC;
 }
 
@@ -29,12 +29,12 @@ void cma_ledger::clear() {
     account_asset_balance.clear();
 }
 
-size_t cma_ledger::get_asset_count() {
+auto cma_ledger::get_asset_count() -> size_t {
     return lassid_to_asset.size();
 }
 
-bool cma_ledger::find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t *token_address,
-    cma_token_id_t *token_id, cma_amount_t *supply) {
+auto cma_ledger::find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t *token_address,
+    cma_token_id_t *token_id, cma_amount_t *supply) -> bool {
     lassid_to_asset_t::iterator find_result = lassid_to_asset.find(asset_id);
     if (find_result == lassid_to_asset.end()) {
         return false;
@@ -78,7 +78,7 @@ void cma_ledger::set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &
 }
 
 void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
-    cma_token_id_t *token_id, cma_ledger_asset_type_t asset_type, cma_ledger_retrieve_operation_t op) {
+    cma_token_id_t *token_id, cma_ledger_asset_type_t asset_type, cma_ledger_retrieve_operation_t operation) {
 
     const size_t curr_size = get_asset_count();
 
@@ -90,16 +90,16 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
             if (asset_id == nullptr) {
                 throw LedgerException("Invalid asset id ptr", -EINVAL);
             }
-            if (op == CMA_LEDGER_OP_FIND || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 if (find_asset(*asset_id, token_address, token_id, nullptr)) {
                     return;
-                } else if (op == CMA_LEDGER_OP_FIND) {
+                } else if (operation == CMA_LEDGER_OP_FIND) {
                     throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
             // 2: create asset id map (but no reverse)
-            if (op == CMA_LEDGER_OP_CREATE || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_ID;
                 std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
@@ -130,7 +130,7 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
             size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
             cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
 
-            if (op == CMA_LEDGER_OP_FIND || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 asset_to_lassid_t::iterator find_result_addr = asset_to_lassid.find(asset_key);
                 if (find_result_addr != asset_to_lassid.end()) {
                     if (!find_asset(find_result_addr->second, token_address, token_id, nullptr)) {
@@ -141,13 +141,13 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                         *asset_id = find_result_addr->second;
                     }
                     return;
-                } else if (op == CMA_LEDGER_OP_FIND) {
+                } else if (operation == CMA_LEDGER_OP_FIND) {
                     throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
             // 2: create asset id map (and reverse token address, no token id)
-            if (op == CMA_LEDGER_OP_CREATE || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 std::pair<asset_to_lassid_t::iterator, bool> insertion_result_addr =
                     asset_to_lassid.insert({asset_key, curr_size});
                 if (!insertion_result_addr.second) {
@@ -193,7 +193,7 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
             size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
             cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
 
-            if (op == CMA_LEDGER_OP_FIND || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 asset_to_lassid_t::iterator find_result_addr = asset_to_lassid.find(asset_key);
                 if (find_result_addr != asset_to_lassid.end()) {
                     if (!find_asset(find_result_addr->second, token_address, token_id, nullptr)) {
@@ -204,13 +204,13 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                         *asset_id = find_result_addr->second;
                     }
                     return;
-                } else if (op == CMA_LEDGER_OP_FIND) {
+                } else if (operation == CMA_LEDGER_OP_FIND) {
                     throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
             // 2: create asset id map (and reverse token address, token id)
-            if (op == CMA_LEDGER_OP_CREATE || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 std::pair<asset_to_lassid_t::iterator, bool> insertion_result_addr =
                     asset_to_lassid.insert({asset_key, curr_size});
                 if (!insertion_result_addr.second) {
@@ -242,11 +242,11 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
     }
 }
 
-size_t cma_ledger::get_account_count() {
+auto cma_ledger::get_account_count() -> size_t {
     return laccid_to_account.size();
 }
 
-bool cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account) {
+auto cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account) -> bool {
     laccid_to_account_t::iterator find_result = laccid_to_account.find(account_id);
     if (find_result == laccid_to_account.end()) {
         return false;
@@ -262,7 +262,7 @@ bool cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_acc
 }
 
 void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account,
-    const void *addr_accid, cma_ledger_account_type_t account_type, cma_ledger_retrieve_operation_t op) {
+    const void *addr_accid, cma_ledger_account_type_t account_type, cma_ledger_retrieve_operation_t operation) {
     const size_t curr_size = get_account_count();
 
     switch (account_type) {
@@ -274,17 +274,17 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             if (account_id == nullptr) {
                 throw LedgerException("Invalid account id ptr", -EINVAL);
             }
-            if (op == CMA_LEDGER_OP_FIND || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 bool account_found = cma_ledger::find_account(*account_id, account);
                 if (account_found) {
                     return;
-                } else if (op == CMA_LEDGER_OP_FIND) {
+                } else if (operation == CMA_LEDGER_OP_FIND) {
                     throw LedgerException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
                 }
             }
 
             // 2: create account id map (but no reverse)
-            if (op == CMA_LEDGER_OP_CREATE || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 cma_ledger_account_t *new_account = new cma_ledger_account_t();
                 new_account->type = CMA_LEDGER_ACCOUNT_TYPE_ID;
                 std::pair<laccid_to_account_t::iterator, bool> insertion_result =
@@ -330,7 +330,7 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             cma_ledger_account_key_t account_key(reinterpret_cast<const char *>(account_local.account_id.data),
                 CMA_ABI_ID_LENGTH);
 
-            if (op == CMA_LEDGER_OP_FIND || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 account_to_laccid_t::iterator find_result_acc = account_to_laccid.find(account_key);
                 if (find_result_acc != account_to_laccid.end()) {
                     if (!cma_ledger::find_account(find_result_acc->second, &account_local)) {
@@ -346,13 +346,13 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                             account_local.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
                     }
                     return;
-                } else if (op == CMA_LEDGER_OP_FIND) {
+                } else if (operation == CMA_LEDGER_OP_FIND) {
                     throw LedgerException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
                 }
             }
 
             // 2: create account id map (and reverse account)
-            if (op == CMA_LEDGER_OP_CREATE || op == CMA_LEDGER_OP_FIND_OR_CREATE) {
+            if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 std::pair<account_to_laccid_t::iterator, bool> insertion_result_acc =
                     account_to_laccid.insert({account_key, curr_size});
                 if (!insertion_result_acc.second) {
