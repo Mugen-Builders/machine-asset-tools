@@ -3,6 +3,8 @@ Checks: >-
   cert*,
   clang-analyzer*,
   cppcoreguidelines*,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
   google-readability-*,
   misc*,
   modernize*,
@@ -10,6 +12,7 @@ Checks: >-
   performance*,
   portability*,
   readability*,
+  -readability-function-cognitive-complexity,
 WarningsAsErrors: >-
   boost*,
   bugprone*,

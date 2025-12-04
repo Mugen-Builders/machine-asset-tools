@@ -1,66 +1,401 @@
+#include <assert.h>
+#include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
-#include "libcma/ledger.h"
+#include <libcmt/rollup.h>
+
+#include "libcma/parser.h"
+
+void test_ether_deposit(void) {
+    cma_parser_input_t parser_input;
+
+    // clang-format off
+    uint8_t data_advance1[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // address 20 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // amount 32 bytes
+        // data 0 bytes
+    };
+    cmt_rollup_advance_t advance1 = {.payload = { .length = sizeof(data_advance1), .data = data_advance1 }};
+    // clang-format on
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, NULL, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &advance1, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, NULL, &parser_input) == -EINVAL);
+    assert(
+        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
+
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT);
+
+    // clang-format off
+    cma_token_address_t address1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    }};
+    cma_amount_t amount1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04,
+    }};
+    // clang-format on
+
+    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_deposit.exec_layer_data.length == 0);
+
+    // clang-format off
+    uint8_t data_advance2[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // address 20 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // amount 32 bytes
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef // data 8 bytes
+    };
+    cmt_rollup_advance_t advance2 = {.payload = { .length = sizeof(data_advance2), .data = data_advance2 }};
+    // clang-format on
+
+    // clang-format off
+    uint8_t data2[] = {
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef
+    };
+    // clang-format on
+
+    assert(
+        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &advance2, &parser_input) == CMA_PARSER_SUCCESS);
+
+    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_deposit.exec_layer_data.length == sizeof(data2));
+    assert(memcmp(parser_input.ether_deposit.exec_layer_data.data, data2, sizeof(data2)) == 0);
+
+    // clang-format off
+    uint8_t malformed_data_advance1[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,  // address 18 bytes
+    };
+    uint8_t malformed_data_advance2[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // address 20 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // amount 22 bytes
+    };
+    // clang-format on
+
+    cmt_rollup_advance_t malformed_advance1 = {
+        .payload = {.length = sizeof(malformed_data_advance1), .data = malformed_data_advance1}};
+    cmt_rollup_advance_t malformed_advance2 = {
+        .payload = {.length = sizeof(malformed_data_advance2), .data = malformed_data_advance2}};
+    cmt_rollup_advance_t malformed_advance3 = {.payload = {.length = 10, .data = data_advance1}};
+    cmt_rollup_advance_t malformed_advance4 = {
+        .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
+
+    assert(
+        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance1, &parser_input) == -ENOBUFS);
+
+    assert(
+        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance2, &parser_input) == -ENOBUFS);
+
+    assert(
+        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance3, &parser_input) == -ENOBUFS);
+
+    // despite being malformed, the parser doesn't give an error because it can't detect (the error is the definition of
+    //   the advance input)
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance4, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
+void test_ether_withdraw(void) {
+    cma_parser_input_t parser_input;
+
+    // clang-format off
+    uint8_t data_advance1[] = {
+        0x8c, 0xf7, 0x0f, 0x0b, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11, // amount 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x40, // offset 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, // size 32 bytes
+        // data 0 bytes
+    };
+    // clang-format on
+    cmt_rollup_advance_t advance1 = {.payload = {.length = sizeof(data_advance1), .data = data_advance1}};
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, NULL, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &advance1, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, NULL, &parser_input) == -EINVAL);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &advance1, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL);
+
+    // clang-format off
+    cma_amount_t amount1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    }};
+    // clang-format on
+
+    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_withdrawal.exec_layer_data.length == 0);
+
+    // clang-format off
+    uint8_t data_advance2[] = {
+        0x8c, 0xf7, 0x0f, 0x0b, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11, // amount 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x40, // offset 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x08, // size 32 bytes
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef // data 8 bytes
+    };
+    cmt_rollup_advance_t advance2 = {.payload = { .length = sizeof(data_advance2), .data = data_advance2 }};
+    // clang-format on
+
+    // clang-format off
+    uint8_t data2[] = {
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef
+    };
+    // clang-format on
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &advance2, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+
+    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_withdrawal.exec_layer_data.length == sizeof(data2));
+    assert(memcmp(parser_input.ether_withdrawal.exec_layer_data.data, data2, sizeof(data2)) == 0);
+
+    // clang-format off
+    uint8_t malformed_data_advance1[] = {
+        0x00, 0x00, // funsel
+    };
+    uint8_t malformed_data_advance2[] = {
+        0x00, 0x00, 0x00, 0x00, // wrong funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // amount 32 bytes
+    };
+    uint8_t malformed_data_advance3[] = {
+        0x8c, 0xf7, 0x0f, 0x0b, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // amount 22 bytes
+    };
+    // clang-format on
+
+    cmt_rollup_advance_t malformed_advance1 = {
+        .payload = {.length = sizeof(malformed_data_advance1), .data = malformed_data_advance1}};
+    cmt_rollup_advance_t malformed_advance2 = {
+        .payload = {.length = sizeof(malformed_data_advance2), .data = malformed_data_advance2}};
+    cmt_rollup_advance_t malformed_advance3 = {
+        .payload = {.length = sizeof(malformed_data_advance3), .data = malformed_data_advance3}};
+    cmt_rollup_advance_t malformed_advance4 = {.payload = {.length = 10, .data = data_advance1}};
+    cmt_rollup_advance_t malformed_advance5 = {
+        .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &malformed_advance1, &parser_input) ==
+        -ENOBUFS);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &malformed_advance2, &parser_input) ==
+        -EBADMSG);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &malformed_advance3, &parser_input) ==
+        -ENOBUFS);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &malformed_advance4, &parser_input) ==
+        -ENOBUFS);
+
+    // despite being malformed, the parser doesn't give an error because it wouldn't get
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &malformed_advance5, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
+void test_ether_transfer(void) {
+    cma_parser_input_t parser_input;
+
+    // clang-format off
+    uint8_t data_advance1[] = {
+        0xff, 0x67, 0xc9, 0x03, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x02, // receiver 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11, // amount 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x60, // offset 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, // size 32 bytes
+        // data 0 bytes
+    };
+    // clang-format on
+    cmt_rollup_advance_t advance1 = {.payload = {.length = sizeof(data_advance1), .data = data_advance1}};
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, NULL, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &advance1, NULL) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, NULL, &parser_input) == -EINVAL);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &advance1, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER);
+
+    // clang-format off
+    cma_amount_t receiver1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x02,
+    }};
+    cma_amount_t amount1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    }};
+    // clang-format on
+
+    assert(memcmp(parser_input.ether_transfer.receiver.data, receiver1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_transfer.exec_layer_data.length == 0);
+
+    // clang-format off
+    uint8_t data_advance2[] = {
+        0xff, 0x67, 0xc9, 0x03, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x02, // receiver 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11, // amount 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x60, // offset 32 bytes
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x08, // size 32 bytes
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef // data 8 bytes
+    };
+    cmt_rollup_advance_t advance2 = {.payload = { .length = sizeof(data_advance2), .data = data_advance2 }};
+    // clang-format on
+
+    // clang-format off
+    uint8_t data2[] = {
+        0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef
+    };
+    // clang-format on
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &advance2, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+
+    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(parser_input.ether_transfer.exec_layer_data.length == sizeof(data2));
+    assert(memcmp(parser_input.ether_transfer.exec_layer_data.data, data2, sizeof(data2)) == 0);
+
+    // clang-format off
+    uint8_t malformed_data_advance1[] = {
+        0x00, 0x00, // funsel
+    };
+    uint8_t malformed_data_advance2[] = {
+        0x00, 0x00, 0x00, 0x00, // wrong funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // receiver 32 bytes
+    };
+    uint8_t malformed_data_advance3[] = {
+        0xff, 0x67, 0xc9, 0x03, // funsel
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, // receiver 22 bytes
+    };
+    // clang-format on
+
+    cmt_rollup_advance_t malformed_advance1 = {
+        .payload = {.length = sizeof(malformed_data_advance1), .data = malformed_data_advance1}};
+    cmt_rollup_advance_t malformed_advance2 = {
+        .payload = {.length = sizeof(malformed_data_advance2), .data = malformed_data_advance2}};
+    cmt_rollup_advance_t malformed_advance3 = {
+        .payload = {.length = sizeof(malformed_data_advance3), .data = malformed_data_advance3}};
+    cmt_rollup_advance_t malformed_advance4 = {.payload = {.length = 10, .data = data_advance1}};
+    cmt_rollup_advance_t malformed_advance5 = {
+        .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &malformed_advance1, &parser_input) ==
+        -ENOBUFS);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &malformed_advance2, &parser_input) ==
+        -EBADMSG);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &malformed_advance3, &parser_input) ==
+        -ENOBUFS);
+
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &malformed_advance4, &parser_input) ==
+        -ENOBUFS);
+
+    // despite being malformed, the parser doesn't give an error because it wouldn't get
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &malformed_advance5, &parser_input) ==
+        CMA_PARSER_SUCCESS);
+
+    printf("%s passed\n", __FUNCTION__);
+}
 
 int main(void) {
+    test_ether_deposit();
+    test_ether_withdraw();
+    test_ether_transfer();
     printf("All parser tests passed!\n");
     return 0;
 }
 
-// global ether_asset_id;
-// void handle_advance(rollup) {
-
-//     metadata = get_metadata(rollup);
-//     input = get_advance(rollup);
-//     cma_parser_input_t assetlib_input;
-
-//     // decoding the request
-//     switch
-//         metadata.msg_sender {
-//             case ETHER_PORTAL:
-//                 err = cma_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, input, assetlib_input);
-//                 assetlib_input.ether_deposit.sender;
-//                 assetlib_input.ether_deposit.amount;
-//                 ledger_asset_retrieve(ether_asset_id);
-//                 // processing here
-//             default:
-//                 err = cma_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, input, assetlib_input);
-//         }
-
-//     // processing of the request
-//     switch
-//         assetlib_input.type {}
-
-//     // normaladvance
-
-//     //
+// printf("sender: ");
+// for (size_t i = 0; i < sizeof(parser_input.ether_deposit.sender.data); i++) {
+//     printf("%02x", parser_input.ether_deposit.sender.data[i]);
 // }
-
-// ether_deposit_t cma_decode_advance_ether_deposit(advance_input);
-
-// void main() {
-
-//     cma_ledger_t ledger;
-//     err = ledger_init(&ledger);
-//     cma_ledger_asset_t asset;
-//     int ledger_create_asset(&ledger, CMA_LEDGER_ASSET_CREATION_TYPE_SEQUENTIAL, cma_ledger_asset_t * asset);
-
-//     ether_asset_id = asset.id;
-
-//     // loop to process finish
-//     while (1) {
-//         handle_advance();
-//     }
+// printf(" = ");
+// for (size_t i = 0; i < sizeof(address1.data); i++) {
+//     printf("%02x", address1.data[i]);
 // }
-// /*
-// {"method" : "cma_getTotaLSupply", "parameters" : [ acc_id, token ]} getTotalSupply(bytes32 account_id,
-//     address token_address, uint256 token_id)
+// printf(" (expected)\n");
 
-// (address token_address, uint256 token_id) -> amount
-
-// ether: (null, null) -> amount
-// erc20: (address token_address, null)-> amount
-// erc721: (address token_address, uint256 token_id) -> amount (max 1)
-// erc1155: (address token_address, uint256 token_id) -> amount
-
-// */
+// printf("res %d (%s)\n",
+//     cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance1, &parser_input),
+//     cma_parser_get_last_error_message());

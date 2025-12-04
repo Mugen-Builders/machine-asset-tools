@@ -45,6 +45,7 @@ libcma_SRC := \
 	src/ledger.cpp \
 	src/ledger_impl.cpp \
 	src/parser.cpp \
+	src/parser_impl.cpp \
 	src/utils.cpp
 
 libcma_OBJDIR    := build/riscv64
@@ -74,6 +75,10 @@ unittests_BINS := \
 $(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
 	mkdir -p $(test_OBJDIR)
 	$(CC) $(CFLAGS) -o $@ $^ -lstdc++
+
+$(test_OBJDIR)/parser: tests/parser.c $(libcma_LIB)
+	mkdir -p $(test_OBJDIR)
+	$(CC) $(CFLAGS) -o $@ $^ -lcmt -lstdc++
 
 # Note: To compile and use shared libcma.so use:
 # $(CC) $(CFLAGS) -o $@ $^ -lstdc++ -L$(libcma_OBJDIR) -lcma
@@ -105,12 +110,12 @@ SPACE:=$(EMPTY) $(EMPTY)
 CLANG_TIDY_HEADER_FILTER=$(CURDIR)/($(subst $(SPACE),|,$(LINTER_HEADERS)))
 
 %.clang-tidy: %.cpp
-	@$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CFLAGS) 2>/dev/null
-	@$(CC) $(CFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
-	@touch $@
+	$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CXXFLAGS) 2>/dev/null
+	$(CXX) $(CXXFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
+	touch $@
 
 clangd-config:
-	@echo "$(CFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
+	@echo "$(CXXFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
 
 format:
 	@$(CLANG_FORMAT) -i $(CLANG_FORMAT_FILES)

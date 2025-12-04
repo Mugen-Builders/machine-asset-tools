@@ -1,6 +1,7 @@
 #ifndef CMA_LEDGER_IMPL_H
 #define CMA_LEDGER_IMPL_H
 
+#include <array>
 #include <string> // for string class
 #include <unordered_map>
 
@@ -25,29 +26,6 @@ enum : uint64_t {
     CMA_HASH_PAIR_CTE = 0x9e3779b9,
     CMA_HASH_PAIR_LSHIFT = 6,
     CMA_HASH_PAIR_RSHIFT = 2,
-};
-
-// Custom exception class
-class LedgerException : public std::exception {
-private:
-    std::string message;
-    int errorCode;
-
-public:
-    // Constructor to initialize message and error code
-    LedgerException(std::string msg, int code) : message(std::move(msg)), errorCode(code) {}
-
-    // Override the what() method to return the error message
-    [[nodiscard]]
-    auto what() const noexcept -> const char * override {
-        return message.c_str();
-    }
-
-    // Method to get the custom error code
-    [[nodiscard]]
-    auto code() const noexcept -> int {
-        return errorCode;
-    }
 };
 
 using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
@@ -79,13 +57,14 @@ using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
 struct hash_pair {
     template <class T1, class T2>
     auto operator()(const std::pair<T1, T2> &pair_ref) const -> size_t {
-        size_t hash1 = std::hash<T1>{}(pair_ref.first);
-        size_t hash2 = std::hash<T2>{}(pair_ref.second);
+        const size_t hash1 = std::hash<T1>{}(pair_ref.first);
+        const size_t hash2 = std::hash<T2>{}(pair_ref.second);
         return hash1 ^ (hash2 + CMA_HASH_PAIR_CTE + (hash1 << CMA_HASH_PAIR_LSHIFT) + (hash1 >> CMA_HASH_PAIR_RSHIFT));
     }
 };
 
-using cma_ledger_asset_key_bytes_t = uint8_t[CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH];
+using cma_ledger_asset_key_bytes_t =
+    std::array<uint8_t, CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH>;
 using cma_ledger_asset_key_t = std::string;
 using cma_ledger_account_key_t = std::string;
 

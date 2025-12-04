@@ -3,6 +3,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Compiler visibility definition
+#ifndef CMA_PARSER_API
+#define CMA_PARSER_API __attribute__((visibility("default")))
+#endif
+
 #include <libcmt/abi.h>
 #include <libcmt/rollup.h>
 
@@ -10,26 +19,27 @@
 
 enum {
     // Bytecode for solidity WithdrawEther(uint256,bytes) = 8cf70f0b
-    WITHDRAW_ETHER = 0x8cf70f0b,
+    // WITHDRAW_ETHER = 0x8cf70f0b,
+    WITHDRAW_ETHER = CMT_ABI_FUNSEL(0x8c, 0xf7, 0x0f, 0x0b),
     // Bytecode for solidity WithdrawErc20(address,uint256,bytes) = 4f94d342
-    WITHDRAW_ERC20 = 0x4f94d342,
+    WITHDRAW_ERC20 = CMT_ABI_FUNSEL(0x4f, 0x94, 0xd3, 0x42),
     // Bytecode for solidity WithdrawErc721(address,uint256,bytes) = 33acf293
-    WITHDRAW_ERC721 = 0x33acf293,
+    WITHDRAW_ERC721 = CMT_ABI_FUNSEL(0x33, 0xac, 0xf2, 0x93),
     // Bytecode for solidity WithdrawErc1155Single(address,uint256,uint256,bytes) = 8bb0a811
-    WITHDRAW_ERC1155_SINGLE = 0x8bb0a811,
+    WITHDRAW_ERC1155_SINGLE = CMT_ABI_FUNSEL(0x8b, 0xb0, 0xa8, 0x11),
     // Bytecode for solidity WithdrawErc1155Batch(address,uint256[],uint256[],bytes) = 50c80019
-    WITHDRAW_ERC1155_BATCH = 0x50c80019,
+    WITHDRAW_ERC1155_BATCH = CMT_ABI_FUNSEL(0x50, 0xc8, 0x00, 0x19),
 
     // Bytecode for solidity TransferEther(bytes32,uint256,bytes) = ff67c903
-    TRANSFER_ETHER = 0xff67c903,
+    TRANSFER_ETHER = CMT_ABI_FUNSEL(0xff, 0x67, 0xc9, 0x03),
     // Bytecode for solidity TransferErc20(address,bytes32,uint256,bytes) = 03d61dcd
-    TRANSFER_ERC20 = 0x03d61dcd,
+    TRANSFER_ERC20 = CMT_ABI_FUNSEL(0x03, 0xd6, 0x1d, 0xcd),
     // Bytecode for solidity TransferErc721(address,bytes32,uint256,bytes) = af615a5a
-    TRANSFER_ERC721 = 0xaf615a5a,
+    TRANSFER_ERC721 = CMT_ABI_FUNSEL(0xaf, 0x61, 0x5a, 0x5a),
     // Bytecode for solidity TransferErc1155Single(address,bytes32,uint256,uint256,bytes) = e1c913ed
-    TRANSFER_ERC1155_SINGLE = 0xe1c913ed,
+    TRANSFER_ERC1155_SINGLE = CMT_ABI_FUNSEL(0xe1, 0xc9, 0x13, 0xed),
     // Bytecode for solidity TransferErc1155Batch(address,bytes32,uint256[],uint256[],bytes) = 638ac6f9
-    TRANSFER_ERC1155_BATCH = 0x638ac6f9,
+    TRANSFER_ERC1155_BATCH = CMT_ABI_FUNSEL(0x63, 0x8a, 0xc6, 0xf9),
 
     // Bytecode for solidity transfer(address,uint256) = a9059cbb
     ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL = 0xa9059cbb,
@@ -42,7 +52,6 @@ enum {
 };
 
 typedef enum {
-    CMA_PARSER_INPUT_TYPE_NONE,
     CMA_PARSER_INPUT_TYPE_AUTO,
     CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT,
     CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT,
@@ -190,7 +199,7 @@ typedef struct cma_parser_input {
         cma_parser_erc1155_batch_transfer_t erc1155_batch_transfer;
         cma_parser_balance_t balance;
         cma_parser_supply_t supply;
-    } u;
+    };
 } cma_parser_input_t;
 
 typedef enum {
@@ -246,24 +255,29 @@ typedef struct cma_voucher {
 enum {
     CMA_PARSER_SUCCESS = 0,
     CMA_PARSER_ERROR_UNKNOWN = -2001,
-    CMA_PARSER_ERROR_INCOMPATIBLE_INPUT = -2002,
-    CMA_PARSER_ERROR_MALFORMED_INPUT = -2003,
-    CMA_PARSER_ERROR_INVALID_AMOUNT = -2004,
+    CMA_PARSER_ERROR_EXCEPTION = -2002,
+    CMA_PARSER_ERROR_INCOMPATIBLE_INPUT = -2003,
+    CMA_PARSER_ERROR_MALFORMED_INPUT = -2004,
+    CMA_PARSER_ERROR_INVALID_AMOUNT = -2005,
 };
 
 // decode advance
-int cma_decode_advance(cma_parser_input_type_t type, const cmt_rollup_advance_t *input,
+CMA_PARSER_API int cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_advance_t *input,
     cma_parser_input_t *parser_input);
 
 // decode inspect
-int cma_decode_inspect(cma_parser_input_type_t type, const cmt_rollup_inspect_t *input,
+CMA_PARSER_API int cma_parser_decode_inspect(cma_parser_input_type_t type, const cmt_rollup_inspect_t *input,
     cma_parser_input_t *parser_input);
 
 // encode voucher
-int cma_encode_voucher(cma_parser_voucher_type_t type, cma_abi_address_t *app_address,
+CMA_PARSER_API int cma_parser_encode_voucher(cma_parser_voucher_type_t type, cma_abi_address_t *app_address,
     const cma_parser_voucher_data_t *voucher_request, cma_voucher_t *voucher);
 
 // get error message
-const char *cma_parser_get_error_message(int error);
+CMA_PARSER_API const char *cma_parser_get_last_error_message();
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // CMA_PARSER_H

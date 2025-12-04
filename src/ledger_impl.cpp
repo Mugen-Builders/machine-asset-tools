@@ -1,9 +1,14 @@
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstdio>
+#include <span>
+#include <tuple>
+#include <utility>
 
 extern "C" {
 #include "libcma/ledger.h"
+#include "libcma/types.h"
 }
 
 #include "ledger_impl.h"
@@ -35,7 +40,7 @@ auto cma_ledger::get_asset_count() -> size_t {
 
 auto cma_ledger::find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t *token_address,
     cma_token_id_t *token_id, cma_amount_t *supply) -> bool {
-    lassid_to_asset_t::iterator find_result = lassid_to_asset.find(asset_id);
+    const auto find_result = lassid_to_asset.find(asset_id);
     if (find_result == lassid_to_asset.end()) {
         return false;
     }
@@ -45,36 +50,40 @@ auto cma_ledger::find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t 
         case CMA_LEDGER_ASSET_TYPE_ID:
             break;
         case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS:
-            if (token_address != nullptr)
-                std::ignore = std::copy(find_result->second.token_address.data,
-                    find_result->second.token_address.data + CMA_ABI_ADDRESS_LENGTH, token_address->data);
+            if (token_address != nullptr) {
+                std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.token_address.data),
+                    CMA_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(token_address->data));
+            }
             break;
         case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID:
-            if (token_address != nullptr)
-                std::ignore = std::copy(find_result->second.token_address.data,
-                    find_result->second.token_address.data + CMA_ABI_ADDRESS_LENGTH, token_address->data);
-            if (token_id != nullptr)
-                std::ignore = std::copy(find_result->second.token_id.data,
-                    find_result->second.token_id.data + CMA_ABI_ID_LENGTH, token_id->data);
+            if (token_address != nullptr) {
+                std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.token_address.data),
+                    CMA_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(token_address->data));
+            }
+            if (token_id != nullptr) {
+                std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.token_id.data), CMA_ABI_ID_LENGTH,
+                    static_cast<uint8_t *>(token_id->data));
+            }
             break;
         default:
             // shouldn't be here (wrongly added to map)
-            throw LedgerException("Invalid asset type", -EINVAL);
+            throw CmaException("Invalid asset type", -EINVAL);
     }
     if (supply != nullptr) {
-        std::ignore = std::copy(find_result->second.supply.data, find_result->second.supply.data + CMA_ABI_U256_LENGTH,
-            supply->data);
+        std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.supply.data), CMA_ABI_U256_LENGTH,
+            static_cast<uint8_t *>(supply->data));
     }
     return true;
 }
 
 void cma_ledger::set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &supply) {
-    lassid_to_asset_t::iterator find_result = lassid_to_asset.find(asset_id);
+    auto find_result = lassid_to_asset.find(asset_id);
     if (find_result == lassid_to_asset.end()) {
-        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
-    std::ignore = std::copy(supply.data, supply.data + CMA_ABI_U256_LENGTH, find_result->second.supply.data);
+    std::ignore = std::copy_n(static_cast<uint8_t *>(supply.data), CMA_ABI_U256_LENGTH,
+        static_cast<uint8_t *>(find_result->second.supply.data));
 }
 
 void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
@@ -88,30 +97,30 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
             // 1: look for asset
             if (asset_id == nullptr) {
-                throw LedgerException("Invalid asset id ptr", -EINVAL);
+                throw CmaException("Invalid asset id ptr", -EINVAL);
             }
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
                 if (find_asset(*asset_id, token_address, token_id, nullptr)) {
                     return;
-                } else if (operation == CMA_LEDGER_OP_FIND) {
-                    throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+                }
+                if (operation == CMA_LEDGER_OP_FIND) {
+                    throw CmaException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
             // 2: create asset id map (but no reverse)
             if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
+                auto *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_ID;
-                std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
+                const std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
                     lassid_to_asset.insert({curr_size, *new_asset});
                 if (!insertion_result.second) {
                     // Key already existed, value was not overwritten
                     // shouldn't be here
-                    throw LedgerException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 *asset_id = curr_size;
-                delete new_asset;
             }
             break;
         }
@@ -120,29 +129,32 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
             // 1: look for asset
             if (token_address == nullptr) {
-                throw LedgerException("Invalid token address ptr", -EINVAL);
+                throw CmaException("Invalid token address ptr", -EINVAL);
             }
 
             cma_ledger_asset_key_bytes_t asset_key_bytes = {};
+            std::span<uint8_t> asset_key_bytes_span(asset_key_bytes);
+            std::span<uint8_t> asset_key_bytes_addr_span =
+                asset_key_bytes_span.subspan(CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND, CMA_ABI_ADDRESS_LENGTH);
             asset_key_bytes[CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND] = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-            std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
-                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND);
-            size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
-            cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
+            std::ignore = std::copy_n(static_cast<uint8_t *>(token_address->data), CMA_ABI_ADDRESS_LENGTH,
+                asset_key_bytes_addr_span.begin());
+            cma_ledger_asset_key_t asset_key(asset_key_bytes_span.begin(), asset_key_bytes_span.end());
 
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                asset_to_lassid_t::iterator find_result_addr = asset_to_lassid.find(asset_key);
+                auto find_result_addr = asset_to_lassid.find(asset_key);
                 if (find_result_addr != asset_to_lassid.end()) {
                     if (!find_asset(find_result_addr->second, token_address, token_id, nullptr)) {
                         // shouldn't be here
-                        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+                        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                     }
                     if (asset_id != nullptr) {
                         *asset_id = find_result_addr->second;
                     }
                     return;
-                } else if (operation == CMA_LEDGER_OP_FIND) {
-                    throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+                }
+                if (operation == CMA_LEDGER_OP_FIND) {
+                    throw CmaException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
@@ -152,24 +164,23 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                     asset_to_lassid.insert({asset_key, curr_size});
                 if (!insertion_result_addr.second) {
                     // Key already existed, value was not overwritten
-                    throw LedgerException("Asset Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Asset Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
-                cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
+                auto *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-                std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
-                    new_asset->token_address.data);
+                std::ignore = std::copy_n(static_cast<uint8_t *>(token_address->data), CMA_ABI_ADDRESS_LENGTH,
+                    static_cast<uint8_t *>(new_asset->token_address.data));
                 std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
                     lassid_to_asset.insert({curr_size, *new_asset});
                 if (!insertion_result.second) {
                     // shouldn't be here
-                    throw LedgerException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 if (asset_id != nullptr) {
                     *asset_id = curr_size;
                 }
-                delete new_asset;
             }
             break;
         }
@@ -178,34 +189,39 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
 
             // 1: look for asset
             if (token_address == nullptr) {
-                throw LedgerException("Invalid token address ptr", -EINVAL);
+                throw CmaException("Invalid token address ptr", -EINVAL);
             }
             if (token_id == nullptr) {
-                throw LedgerException("Invalid token id ptr", -EINVAL);
+                throw CmaException("Invalid token id ptr", -EINVAL);
             }
 
             cma_ledger_asset_key_bytes_t asset_key_bytes = {};
+            std::span<uint8_t> asset_key_bytes_span(asset_key_bytes);
+            std::span<uint8_t> asset_key_bytes_addr_span =
+                asset_key_bytes_span.subspan(CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND, CMA_ABI_ADDRESS_LENGTH);
+            std::span<uint8_t> asset_key_bytes_id_span =
+                asset_key_bytes_span.subspan(CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND, CMA_ABI_ID_LENGTH);
             asset_key_bytes[CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND] = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-            std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
-                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND);
-            std::ignore = std::copy(token_id->data, token_id->data + CMA_ABI_ID_LENGTH,
-                asset_key_bytes + CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND);
-            size_t asset_key_bytes_len = sizeof(asset_key_bytes) / sizeof(asset_key_bytes[0]);
-            cma_ledger_asset_key_t asset_key(reinterpret_cast<const char *>(asset_key_bytes), asset_key_bytes_len);
+            std::ignore = std::copy_n(static_cast<uint8_t *>(token_address->data), CMA_ABI_ADDRESS_LENGTH,
+                asset_key_bytes_addr_span.begin());
+            std::ignore =
+                std::copy_n(static_cast<uint8_t *>(token_id->data), CMA_ABI_ID_LENGTH, asset_key_bytes_id_span.begin());
+            cma_ledger_asset_key_t asset_key(asset_key_bytes_span.begin(), asset_key_bytes_span.end());
 
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                asset_to_lassid_t::iterator find_result_addr = asset_to_lassid.find(asset_key);
+                auto find_result_addr = asset_to_lassid.find(asset_key);
                 if (find_result_addr != asset_to_lassid.end()) {
                     if (!find_asset(find_result_addr->second, token_address, token_id, nullptr)) {
                         // shouldn't be here
-                        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+                        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                     }
                     if (asset_id != nullptr) {
                         *asset_id = find_result_addr->second;
                     }
                     return;
-                } else if (operation == CMA_LEDGER_OP_FIND) {
-                    throw LedgerException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+                }
+                if (operation == CMA_LEDGER_OP_FIND) {
+                    throw CmaException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
                 }
             }
 
@@ -215,30 +231,30 @@ void cma_ledger::retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                     asset_to_lassid.insert({asset_key, curr_size});
                 if (!insertion_result_addr.second) {
                     // Key already existed, value was not overwritten
-                    throw LedgerException("Asset Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Asset Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
-                cma_ledger_asset_struct_t *new_asset = new cma_ledger_asset_struct_t();
+                auto *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
-                std::ignore = std::copy(token_address->data, token_address->data + CMA_ABI_ADDRESS_LENGTH,
-                    new_asset->token_address.data);
-                std::ignore = std::copy(token_id->data, token_id->data + CMA_ABI_ID_LENGTH, new_asset->token_id.data);
+                std::ignore = std::copy_n(static_cast<uint8_t *>(token_address->data), CMA_ABI_ADDRESS_LENGTH,
+                    static_cast<uint8_t *>(new_asset->token_address.data));
+                std::ignore = std::copy_n(static_cast<uint8_t *>(token_id->data), CMA_ABI_ID_LENGTH,
+                    static_cast<uint8_t *>(new_asset->token_id.data));
                 std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
                     lassid_to_asset.insert({curr_size, *new_asset});
                 if (!insertion_result.second) {
                     // shouldn't be here
-                    throw LedgerException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Asset ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 if (asset_id != nullptr) {
                     *asset_id = curr_size;
                 }
-                delete new_asset;
             }
             break;
         }
         default:
-            throw LedgerException("Invalid asset type", -EINVAL);
+            throw CmaException("Invalid asset type", -EINVAL);
     }
 }
 
@@ -247,7 +263,7 @@ auto cma_ledger::get_account_count() -> size_t {
 }
 
 auto cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account) -> bool {
-    laccid_to_account_t::iterator find_result = laccid_to_account.find(account_id);
+    auto find_result = laccid_to_account.find(account_id);
     if (find_result == laccid_to_account.end()) {
         return false;
     }
@@ -255,8 +271,8 @@ auto cma_ledger::find_account(cma_ledger_account_id_t account_id, cma_ledger_acc
     // asset found
     if (account != nullptr) {
         account->type = find_result->second.type;
-        std::ignore = std::copy(find_result->second.account_id.data,
-            find_result->second.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
+        std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.account_id.data), CMA_ABI_ID_LENGTH,
+            static_cast<uint8_t *>(account->account_id.data));
     }
     return true;
 }
@@ -272,30 +288,29 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
 
             // 1: look for account_id
             if (account_id == nullptr) {
-                throw LedgerException("Invalid account id ptr", -EINVAL);
+                throw CmaException("Invalid account id ptr", -EINVAL);
             }
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                bool account_found = cma_ledger::find_account(*account_id, account);
-                if (account_found) {
+                if (cma_ledger::find_account(*account_id, account)) {
                     return;
-                } else if (operation == CMA_LEDGER_OP_FIND) {
-                    throw LedgerException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+                }
+                if (operation == CMA_LEDGER_OP_FIND) {
+                    throw CmaException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
                 }
             }
 
             // 2: create account id map (but no reverse)
             if (operation == CMA_LEDGER_OP_CREATE || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                cma_ledger_account_t *new_account = new cma_ledger_account_t();
+                auto *new_account = new cma_ledger_account_t();
                 new_account->type = CMA_LEDGER_ACCOUNT_TYPE_ID;
                 std::pair<laccid_to_account_t::iterator, bool> insertion_result =
                     laccid_to_account.insert({curr_size, *new_account});
                 if (!insertion_result.second) {
                     // shouldn't be here
-                    throw LedgerException("Account ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Account ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 *account_id = curr_size;
-                delete new_account;
             }
             break;
         }
@@ -306,20 +321,18 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             cma_ledger_account_t account_local;
             if (addr_accid != nullptr) {
                 if (account_type == CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS) {
-                    std::ignore = std::copy((static_cast<const cma_token_address_t *>(addr_accid))->data,
-                        (static_cast<const cma_token_address_t *>(addr_accid))->data + CMA_ABI_ADDRESS_LENGTH,
-                        account_local.address.data);
+                    std::ignore = std::copy_n((static_cast<const cma_token_address_t *>(addr_accid))->data,
+                        CMA_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(account_local.address.data));
                 } else if (account_type == CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID) {
-                    std::ignore = std::copy((static_cast<const cma_token_id_t *>(addr_accid))->data,
-                        (static_cast<const cma_token_id_t *>(addr_accid))->data + CMA_ABI_ID_LENGTH,
-                        account_local.account_id.data);
+                    std::ignore = std::copy_n((static_cast<const cma_token_id_t *>(addr_accid))->data,
+                        CMA_ABI_ID_LENGTH, static_cast<uint8_t *>(account_local.account_id.data));
                 }
             } else {
                 if (account == nullptr) {
-                    throw LedgerException("Invalid account ptr", -EINVAL);
+                    throw CmaException("Invalid account ptr", -EINVAL);
                 }
-                std::ignore = std::copy(account->account_id.data, account->account_id.data + CMA_ABI_ID_LENGTH,
-                    account_local.account_id.data);
+                std::ignore = std::copy_n(static_cast<uint8_t *>(account->account_id.data), CMA_ABI_ID_LENGTH,
+                    static_cast<uint8_t *>(account_local.account_id.data));
             }
 
             // 1: look for account
@@ -331,23 +344,24 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                 CMA_ABI_ID_LENGTH);
 
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE) {
-                account_to_laccid_t::iterator find_result_acc = account_to_laccid.find(account_key);
+                auto find_result_acc = account_to_laccid.find(account_key);
                 if (find_result_acc != account_to_laccid.end()) {
                     if (!cma_ledger::find_account(find_result_acc->second, &account_local)) {
                         // shouldn't be here
-                        throw LedgerException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+                        throw CmaException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
                     }
                     if (account_id != nullptr) {
                         *account_id = find_result_acc->second;
                     }
                     if (account != nullptr) {
                         account->type = account_local.type;
-                        std::ignore = std::copy(account_local.account_id.data,
-                            account_local.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
+                        std::ignore = std::copy_n(static_cast<uint8_t *>(account_local.account_id.data),
+                            CMA_ABI_ID_LENGTH, static_cast<uint8_t *>(account->account_id.data));
                     }
                     return;
-                } else if (operation == CMA_LEDGER_OP_FIND) {
-                    throw LedgerException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+                }
+                if (operation == CMA_LEDGER_OP_FIND) {
+                    throw CmaException("Account not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
                 }
             }
 
@@ -357,7 +371,7 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                     account_to_laccid.insert({account_key, curr_size});
                 if (!insertion_result_acc.second) {
                     // Key already existed, value was not overwritten
-                    throw LedgerException("Account Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Account Key already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 account_local.type = account_type; // set correct type
@@ -365,7 +379,7 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                     laccid_to_account.insert({curr_size, account_local});
                 if (!insertion_result.second) {
                     // shouldn't be here
-                    throw LedgerException("Account ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                    throw CmaException("Account ID already exists", CMA_LEDGER_ERROR_INSERTION_ERROR);
                 }
 
                 if (account_id != nullptr) {
@@ -373,38 +387,39 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
                 }
                 if (account != nullptr) {
                     account->type = account_local.type;
-                    std::ignore = std::copy(account_local.account_id.data,
-                        account_local.account_id.data + CMA_ABI_ID_LENGTH, account->account_id.data);
+                    std::ignore = std::copy_n(static_cast<uint8_t *>(account_local.account_id.data), CMA_ABI_ID_LENGTH,
+                        static_cast<uint8_t *>(account->account_id.data));
                 }
             }
             break;
         }
         default:
-            throw LedgerException("Invalid asset type", -EINVAL);
+            throw CmaException("Invalid asset type", -EINVAL);
     }
 }
 
 void cma_ledger::get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,
     cma_amount_t &balance) {
-    account_asset_map_t::iterator find_result = account_asset_balance.find({asset_id, to_account_id});
+    auto find_result = account_asset_balance.find({asset_id, to_account_id});
     if (find_result == account_asset_balance.end()) {
-        std::fill(balance.data, balance.data + CMA_ABI_U256_LENGTH, (uint8_t) 0);
+        std::fill_n(static_cast<uint8_t *>(balance.data), CMA_ABI_U256_LENGTH, (uint8_t) 0);
         return;
     }
 
-    std::ignore = std::copy(find_result->second.data, find_result->second.data + CMA_ABI_U256_LENGTH, balance.data);
+    std::ignore = std::copy_n(static_cast<uint8_t *>(find_result->second.data), CMA_ABI_U256_LENGTH,
+        static_cast<uint8_t *>(balance.data));
 }
 
 void cma_ledger::set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,
     const cma_amount_t &balance) {
-    account_asset_map_t::iterator find_result = account_asset_balance.find({asset_id, to_account_id});
+    auto find_result = account_asset_balance.find({asset_id, to_account_id});
     if (find_result == account_asset_balance.end()) {
         // create new entry
         account_asset_balance.insert({{asset_id, to_account_id}, balance});
         return;
     }
 
-    std::ignore = std::copy(balance.data, balance.data + CMA_ABI_U256_LENGTH, find_result->second.data);
+    std::ignore = std::copy_n(balance.data, CMA_ABI_U256_LENGTH, static_cast<uint8_t *>(find_result->second.data));
 }
 
 void cma_ledger::deposit(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,
@@ -412,16 +427,16 @@ void cma_ledger::deposit(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t
     // 1: check asset
     cma_amount_t curr_supply = {};
     if (!find_asset(asset_id, nullptr, nullptr, &curr_supply)) {
-        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
     cma_amount_t new_supply = {};
     if (!amount_checked_add(new_supply, curr_supply, deposit)) {
-        throw LedgerException("Asset supply overflow", CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
+        throw CmaException("Asset supply overflow", CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
     }
     // 2: check account
     if (!cma_ledger::find_account(to_account_id, nullptr)) {
-        throw LedgerException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        throw CmaException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
     }
     // 3: check amount
     cma_amount_t curr_balance = {};
@@ -429,7 +444,7 @@ void cma_ledger::deposit(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t
 
     cma_amount_t new_balance = {};
     if (!amount_checked_add(new_balance, curr_balance, deposit)) {
-        throw LedgerException("Asset balance overflow", CMA_LEDGER_ERROR_BALANCE_OVERFLOW);
+        throw CmaException("Asset balance overflow", CMA_LEDGER_ERROR_BALANCE_OVERFLOW);
     }
 
     // 4: update account balance
@@ -444,16 +459,16 @@ void cma_ledger::withdraw(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_
     // 1: check asset
     cma_amount_t curr_supply = {};
     if (!find_asset(asset_id, nullptr, nullptr, &curr_supply)) {
-        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
     cma_amount_t new_supply = {};
     if (!amount_checked_sub(new_supply, curr_supply, withdrawal)) {
-        throw LedgerException("Asset supply underflow", CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
+        throw CmaException("Asset supply underflow", CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
     }
     // 2: check account
     if (!cma_ledger::find_account(from_account_id, nullptr)) {
-        throw LedgerException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        throw CmaException("Account by id not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
     }
     // 3: check amount
     cma_amount_t curr_balance = {};
@@ -461,7 +476,7 @@ void cma_ledger::withdraw(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_
 
     cma_amount_t new_balance = {};
     if (!amount_checked_sub(new_balance, curr_balance, withdrawal)) {
-        throw LedgerException("Insufficient funds", CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS);
+        throw CmaException("Insufficient funds", CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS);
     }
 
     // 4: update account balance
@@ -476,15 +491,15 @@ void cma_ledger::transfer(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_
     // 1: check asset
     cma_amount_t curr_supply = {};
     if (!find_asset(asset_id, nullptr, nullptr, &curr_supply)) {
-        throw LedgerException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+        throw CmaException("Asset by id not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 
     // 2: check account from
     if (from_account_id == to_account_id) {
-        throw LedgerException("Account from equal to account to", -EINVAL);
+        throw CmaException("Account from equal to account to", -EINVAL);
     }
     if (!cma_ledger::find_account(from_account_id, nullptr)) {
-        throw LedgerException("Account from not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        throw CmaException("Account from not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
     }
     // 3: check amount from
     cma_amount_t curr_balance_from = {};
@@ -492,12 +507,12 @@ void cma_ledger::transfer(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_
 
     cma_amount_t new_balance_from = {};
     if (!amount_checked_sub(new_balance_from, curr_balance_from, amount)) {
-        throw LedgerException("Insufficient funds", CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS);
+        throw CmaException("Insufficient funds", CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS);
     }
 
     // 4: check account to
     if (!cma_ledger::find_account(to_account_id, nullptr)) {
-        throw LedgerException("Account to not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        throw CmaException("Account to not found", CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
     }
     // 5: check amount to
     cma_amount_t curr_balance_to = {};
@@ -505,7 +520,7 @@ void cma_ledger::transfer(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_
 
     cma_amount_t new_balance_to = {};
     if (!amount_checked_add(new_balance_to, curr_balance_to, amount)) {
-        throw LedgerException("Balance overflow", CMA_LEDGER_ERROR_BALANCE_OVERFLOW);
+        throw CmaException("Balance overflow", CMA_LEDGER_ERROR_BALANCE_OVERFLOW);
     }
 
     // 6: update account balances
