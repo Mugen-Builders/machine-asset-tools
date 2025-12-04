@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <span>

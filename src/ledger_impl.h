@@ -2,6 +2,7 @@
 #define CMA_LEDGER_IMPL_H
 
 #include <array>
+#include <cstddef>
 #include <string> // for string class
 #include <unordered_map>
 

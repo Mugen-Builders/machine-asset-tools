@@ -1,3 +1,7 @@
+#include <cstddef>
+#include <cstdint>
+#include <span>
+
 extern "C" {
 #include "libcma/parser.h"
 #include "libcma/types.h"
@@ -27,32 +31,36 @@ auto cma_abi_get_bytes_packed(const cmt_buf_t *start, size_t *n, void **data) ->
         throw CmaException("Invalid data pointer", -ENOBUFS);
     }
     if (start->begin > start->end) {
-        printf("DEBUG cmt_abi_get_bytes_packed error begin: %p, end: %p\n", start->begin, start->end);
         throw CmaException("Invalid buffer pointer range", -ENOBUFS);
     }
     *n = cmt_buf_length(start);
     *data = start->begin;
 }
 
-auto cma_abi_get_bytes(const cmt_buf_t *me, size_t n, uint8_t *out) -> void {
-    if (me == nullptr) {
+auto cma_abi_get_bytes(const cmt_buf_t *buf, size_t n_bytes, uint8_t *out) -> void {
+    if (buf == nullptr) {
         throw CmaException("Invalid bytes buffer pointer", -ENOBUFS);
     }
     if (out == nullptr) {
         throw CmaException("Invalid out pointer", -ENOBUFS);
     }
-    for (size_t i = 0; i < n; ++i) {
-        if (me->begin + i >= me->end) {
-            throw CmaException("Invalid buffer pointer range", -ENOBUFS);
-        }
-        out[i] = me->begin[i];
+    if (cmt_buf_length(buf) < n_bytes) {
+        throw CmaException("Invalid buffer length", -ENOBUFS);
+    }
+    const std::span<uint8_t> buf_span(buf->begin, buf->end);
+    const std::span<uint8_t> out_span(out, n_bytes);
+    for (size_t i = 0; i < n_bytes; ++i) {
+        out_span[i] = buf_span[i];
     }
 }
 
-auto cma_abi_get_address_packed(cmt_buf_t *me, cma_abi_address_t *address) -> void {
-    cmt_buf_t x[1];
-    cma_abi_get_bytes(me, CMT_ABI_ADDRESS_LENGTH, address->data);
-    cmt_buf_split(me, CMT_ABI_ADDRESS_LENGTH, x, me);
+auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> void {
+    cmt_buf_t lbuf = {};
+    if (cmt_buf_length(buf) < CMT_ABI_ADDRESS_LENGTH) {
+        throw CmaException("Invalid buffer length", -ENOBUFS);
+    }
+    cma_abi_get_bytes(buf, CMT_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(address->data));
+    cmt_buf_split(buf, CMT_ABI_ADDRESS_LENGTH, &lbuf, buf);
 }
 
 } // namespace
@@ -62,132 +70,143 @@ auto cma_abi_get_address_packed(cmt_buf_t *me, cma_abi_address_t *address) -> vo
  */
 
 void cma_parser_decode_ether_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
-    cmt_buf_t data_buf[1];
-    cmt_buf_init(data_buf, input.payload.length, input.payload.data);
-    cma_abi_get_address_packed(data_buf, &parser_input.ether_deposit.sender);
-    int rc = cmt_abi_get_uint256(data_buf, &parser_input.ether_deposit.amount);
-    if (rc) {
-        throw CmaException("Error getting amount", rc);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cma_abi_get_address_packed(buf, &parser_input.ether_deposit.sender);
+    const int err = cmt_abi_get_uint256(buf, &parser_input.ether_deposit.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
     }
-    cma_abi_get_bytes_packed(data_buf, &parser_input.ether_deposit.exec_layer_data.length,
+    cma_abi_get_bytes_packed(buf, &parser_input.ether_deposit.exec_layer_data.length,
         &parser_input.ether_deposit.exec_layer_data.data);
     parser_input.type = CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT;
 }
 
 void cma_parser_decode_erc20_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
-    cmt_buf_t data_buf[1];
-    cmt_buf_init(data_buf, input.payload.length, input.payload.data);
-    cma_abi_get_address_packed(data_buf, &parser_input.erc20_deposit.sender);
-    cma_abi_get_address_packed(data_buf, &parser_input.erc20_deposit.token);
-    int rc = cmt_abi_get_uint256(data_buf, &parser_input.erc20_deposit.amount);
-    if (rc) {
-        throw CmaException("Error getting amount", rc);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.sender);
+    cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.token);
+    const int err = cmt_abi_get_uint256(buf, &parser_input.erc20_deposit.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
     }
-    cma_abi_get_bytes_packed(data_buf, &parser_input.erc20_deposit.exec_layer_data.length,
+    cma_abi_get_bytes_packed(buf, &parser_input.erc20_deposit.exec_layer_data.length,
         &parser_input.erc20_deposit.exec_layer_data.data);
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT;
 }
 
 void cma_parser_decode_ether_withdrawal(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
-    cmt_buf_t data_buf[1];
-    cmt_buf_init(data_buf, input.payload.length, input.payload.data);
-    cmt_buf_t frame[1];
-    cmt_buf_t of[1];
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset = &offset_data;
 
-    int rc = 0;
-    rc = cmt_abi_check_funsel(data_buf, WITHDRAW_ETHER);
-    if (rc) {
-        throw CmaException("Invalid funsel", rc);
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, WITHDRAW_ETHER);
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
     }
 
-    rc = cmt_abi_mark_frame(data_buf, frame);
-    if (rc) {
-        throw CmaException("Error marking frame", rc);
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
     }
-    rc = cmt_abi_get_uint256(data_buf, &parser_input.ether_withdrawal.amount);
-    if (rc) {
-        throw CmaException("Error getting amount", rc);
+    err = cmt_abi_get_uint256(buf, &parser_input.ether_withdrawal.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
     }
-    rc = cmt_abi_get_bytes_s(data_buf, of);
-    if (rc) {
-        throw CmaException("Error getting bytes offset", rc);
+    err = cmt_abi_get_bytes_s(buf, offset);
+    if (err != 0) {
+        throw CmaException("Error getting bytes offset", err);
     }
-    rc = cmt_abi_get_bytes_d(frame, of, &parser_input.ether_withdrawal.exec_layer_data.length,
+    err = cmt_abi_get_bytes_d(frame, offset, &parser_input.ether_withdrawal.exec_layer_data.length,
         &parser_input.ether_withdrawal.exec_layer_data.data);
-    if (rc) {
-        throw CmaException("Error getting bytes", rc);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
     }
     parser_input.type = CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL;
 }
 
 void cma_parser_decode_erc20_withdrawal(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
-    cmt_buf_t data_buf[1];
-    cmt_buf_init(data_buf, input.payload.length, input.payload.data);
-    cmt_buf_t frame[1];
-    cmt_buf_t of[1];
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset = &offset_data;
 
-    int rc = 0;
-    rc = cmt_abi_check_funsel(data_buf, WITHDRAW_ERC20);
-    if (rc) {
-        throw CmaException("Invalid funsel", rc);
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, WITHDRAW_ERC20);
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
     }
 
-    rc = cmt_abi_mark_frame(data_buf, frame);
-    if (rc) {
-        throw CmaException("Error marking frame", rc);
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
     }
-    rc = cmt_abi_get_address(data_buf, &parser_input.erc20_withdrawal.token);
-    if (rc) {
-        throw CmaException("Error getting token", rc);
+    err = cmt_abi_get_address(buf, &parser_input.erc20_withdrawal.token);
+    if (err != 0) {
+        throw CmaException("Error getting token", err);
     }
-    rc = cmt_abi_get_uint256(data_buf, &parser_input.erc20_withdrawal.amount);
-    if (rc) {
-        throw CmaException("Error getting amount", rc);
+    err = cmt_abi_get_uint256(buf, &parser_input.erc20_withdrawal.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
     }
-    rc = cmt_abi_get_bytes_s(data_buf, of);
-    if (rc) {
-        throw CmaException("Error getting bytes offset", rc);
+    err = cmt_abi_get_bytes_s(buf, offset);
+    if (err != 0) {
+        throw CmaException("Error getting bytes offset", err);
     }
-    rc = cmt_abi_get_bytes_d(frame, of, &parser_input.erc20_withdrawal.exec_layer_data.length,
+    err = cmt_abi_get_bytes_d(frame, offset, &parser_input.erc20_withdrawal.exec_layer_data.length,
         &parser_input.erc20_withdrawal.exec_layer_data.data);
-    if (rc) {
-        throw CmaException("Error getting bytes", rc);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
     }
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC20_WITHDRAWAL;
 }
 
 void cma_parser_decode_ether_transfer(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
-    cmt_buf_t data_buf[1];
-    cmt_buf_init(data_buf, input.payload.length, input.payload.data);
-    cmt_buf_t frame[1];
-    cmt_buf_t of[1];
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset = &offset_data;
 
-    int rc = 0;
-    rc = cmt_abi_check_funsel(data_buf, TRANSFER_ETHER);
-    if (rc) {
-        throw CmaException("Invalid funsel", rc);
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, TRANSFER_ETHER);
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
     }
 
-    rc = cmt_abi_mark_frame(data_buf, frame);
-    if (rc) {
-        throw CmaException("Error marking frame", rc);
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
     }
-    rc = cmt_abi_get_uint256(data_buf, &parser_input.ether_transfer.receiver);
-    if (rc) {
-        throw CmaException("Error getting receiver", rc);
+    err = cmt_abi_get_uint256(buf, &parser_input.ether_transfer.receiver);
+    if (err != 0) {
+        throw CmaException("Error getting receiver", err);
     }
-    rc = cmt_abi_get_uint256(data_buf, &parser_input.ether_transfer.amount);
-    if (rc) {
-        throw CmaException("Error getting amount", rc);
+    err = cmt_abi_get_uint256(buf, &parser_input.ether_transfer.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
     }
-    rc = cmt_abi_get_bytes_s(data_buf, of);
-    if (rc) {
-        throw CmaException("Error getting bytes offset", rc);
+    err = cmt_abi_get_bytes_s(buf, offset);
+    if (err != 0) {
+        throw CmaException("Error getting bytes offset", err);
     }
-    rc = cmt_abi_get_bytes_d(frame, of, &parser_input.ether_transfer.exec_layer_data.length,
+    err = cmt_abi_get_bytes_d(frame, offset, &parser_input.ether_transfer.exec_layer_data.length,
         &parser_input.ether_transfer.exec_layer_data.data);
-    if (rc) {
-        throw CmaException("Error getting bytes", rc);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
     }
     parser_input.type = CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER;
 }
