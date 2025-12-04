@@ -12,14 +12,11 @@ extern "C" {
 }
 
 enum : uint8_t {
-    CMA_ABI_ADDRESS_LENGTH = CMT_ABI_ADDRESS_LENGTH,
-    CMA_ABI_U256_LENGTH = CMT_ABI_U256_LENGTH,
-    CMA_ABI_ID_LENGTH = CMT_ABI_U256_LENGTH,
-
     CMA_LEDGER_ASSET_TYPE_SIZE = 1,
     CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND = 0,
     CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND = CMA_LEDGER_ASSET_ARRAY_KEY_TYPE_IND + CMA_LEDGER_ASSET_TYPE_SIZE,
     CMA_LEDGER_ASSET_ARRAY_KEY_ID_IND = CMA_LEDGER_ASSET_ARRAY_KEY_ADDRESS_IND + CMA_ABI_ADDRESS_LENGTH,
+    CMA_LEDGER_ASSET_MAP_KEY_SIZE = CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH,
 };
 
 enum : uint64_t {
@@ -34,26 +31,7 @@ using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
     cma_token_address_t token_address;
     cma_token_id_t token_id;
     cma_amount_t supply;
-
-    // // Overload operator== for comparison if needed for other contexts
-    // //   to use it have to consider don't care cases
-    // bool operator==(const cma_ledger_asset_struct &other) const {
-    //     return type == other.type &&
-    //         memcmp(&token_address.data, &other.token_address.data, sizeof(token_address.data)) == 0 &&
-    //         memcmp(&token_id.data, &other.token_id.data, sizeof(token_id.data)) == 0 &&
-    //         memcmp(&supply.data, &other.supply.data, sizeof(supply.data)) == 0;
-    // }
 };
-
-// bool operator==(const bytes32_t &a, const bytes32_t &b) {
-//     return std::equal(std::begin(a.data), std::end(a.data), std::begin(b.data));
-// }
-
-// // Overload operator== for comparison if needed for other contexts
-// //   to use it have to consider don't care cases
-// bool operator==(const cma_ledger_account_struct_t &a, const cma_ledger_account_struct_t &b) const {
-//     return a.type == b.type && memcmp(&a.account_id.data, &b.account_id.data, sizeof(a.account_id.data)) == 0;
-// }
 
 struct hash_pair {
     template <class T1, class T2>
@@ -64,8 +42,7 @@ struct hash_pair {
     }
 };
 
-using cma_ledger_asset_key_bytes_t =
-    std::array<uint8_t, CMA_LEDGER_ASSET_TYPE_SIZE + CMA_ABI_ADDRESS_LENGTH + CMA_ABI_ID_LENGTH>;
+using cma_ledger_asset_key_bytes_t = std::array<uint8_t, CMA_LEDGER_ASSET_MAP_KEY_SIZE>;
 using cma_ledger_asset_key_t = std::string;
 using cma_ledger_account_key_t = std::string;
 

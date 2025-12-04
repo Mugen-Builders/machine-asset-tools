@@ -31,6 +31,17 @@ auto cma_parser_decode_erc1155_batch_transfer(const cmt_rollup_advance_t &input,
     -> void;
 
 // Decode inspect functions
+auto cma_parser_decode_get_balance(const cmt_rollup_inspect_t &input, cma_parser_input_t &parser_input) -> void;
+auto cma_parser_decode_get_total_supply(const cmt_rollup_inspect_t &input, cma_parser_input_t &parser_input) -> void;
+
 // Encode voucher functions
+auto cma_parser_encode_ether_voucher(const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void;
+auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void;
+auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void;
+auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void;
+auto cma_parser_encode_erc1155_batch_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void;
 
 #endif // CMA_PARSER_IMPL_H

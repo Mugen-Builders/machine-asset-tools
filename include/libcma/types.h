@@ -5,6 +5,12 @@
 
 #include <libcmt/abi.h>
 
+enum {
+    CMA_ABI_ADDRESS_LENGTH = CMT_ABI_ADDRESS_LENGTH,
+    CMA_ABI_U256_LENGTH = CMT_ABI_U256_LENGTH,
+    CMA_ABI_ID_LENGTH = CMT_ABI_U256_LENGTH,
+};
+
 typedef cmt_abi_address_t cma_abi_address_t;
 typedef cmt_abi_bytes_t cma_abi_bytes_t;
 typedef cmt_abi_u256_t cma_amount_t;

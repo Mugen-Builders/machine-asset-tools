@@ -339,7 +339,7 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             // 1: look for account
             // when using address ensure that fix bytes are zeroed
             if (account_type == CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS) {
-                memset(account_local.fix, 0, CMT_ABI_U256_LENGTH - CMT_ABI_ADDRESS_LENGTH);
+                memset(account_local.fix, 0, CMA_ABI_ID_LENGTH - CMA_ABI_ADDRESS_LENGTH);
             }
             cma_ledger_account_key_t account_key(reinterpret_cast<const char *>(account_local.account_id.data),
                 CMA_ABI_ID_LENGTH);

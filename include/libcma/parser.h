@@ -19,27 +19,26 @@ extern "C" {
 
 enum {
     // Bytecode for solidity WithdrawEther(uint256,bytes) = 8cf70f0b
-    // WITHDRAW_ETHER = 0x8cf70f0b,
-    WITHDRAW_ETHER = CMT_ABI_FUNSEL(0x8c, 0xf7, 0x0f, 0x0b),
+    WITHDRAW_ETHER = 0x8cf70f0b,
     // Bytecode for solidity WithdrawErc20(address,uint256,bytes) = 4f94d342
-    WITHDRAW_ERC20 = CMT_ABI_FUNSEL(0x4f, 0x94, 0xd3, 0x42),
+    WITHDRAW_ERC20 = 0x4f94d342,
     // Bytecode for solidity WithdrawErc721(address,uint256,bytes) = 33acf293
-    WITHDRAW_ERC721 = CMT_ABI_FUNSEL(0x33, 0xac, 0xf2, 0x93),
+    WITHDRAW_ERC721 = 0x33acf293,
     // Bytecode for solidity WithdrawErc1155Single(address,uint256,uint256,bytes) = 8bb0a811
-    WITHDRAW_ERC1155_SINGLE = CMT_ABI_FUNSEL(0x8b, 0xb0, 0xa8, 0x11),
+    WITHDRAW_ERC1155_SINGLE = 0x8bb0a811,
     // Bytecode for solidity WithdrawErc1155Batch(address,uint256[],uint256[],bytes) = 50c80019
-    WITHDRAW_ERC1155_BATCH = CMT_ABI_FUNSEL(0x50, 0xc8, 0x00, 0x19),
+    WITHDRAW_ERC1155_BATCH = 0x50c80019,
 
     // Bytecode for solidity TransferEther(bytes32,uint256,bytes) = ff67c903
-    TRANSFER_ETHER = CMT_ABI_FUNSEL(0xff, 0x67, 0xc9, 0x03),
+    TRANSFER_ETHER = 0xff67c903,
     // Bytecode for solidity TransferErc20(address,bytes32,uint256,bytes) = 03d61dcd
-    TRANSFER_ERC20 = CMT_ABI_FUNSEL(0x03, 0xd6, 0x1d, 0xcd),
+    TRANSFER_ERC20 = 0x03d61dcd,
     // Bytecode for solidity TransferErc721(address,bytes32,uint256,bytes) = af615a5a
-    TRANSFER_ERC721 = CMT_ABI_FUNSEL(0xaf, 0x61, 0x5a, 0x5a),
+    TRANSFER_ERC721 = 0xaf615a5a,
     // Bytecode for solidity TransferErc1155Single(address,bytes32,uint256,uint256,bytes) = e1c913ed
-    TRANSFER_ERC1155_SINGLE = CMT_ABI_FUNSEL(0xe1, 0xc9, 0x13, 0xed),
+    TRANSFER_ERC1155_SINGLE = 0xe1c913ed,
     // Bytecode for solidity TransferErc1155Batch(address,bytes32,uint256[],uint256[],bytes) = 638ac6f9
-    TRANSFER_ERC1155_BATCH = CMT_ABI_FUNSEL(0x63, 0x8a, 0xc6, 0xf9),
+    TRANSFER_ERC1155_BATCH = 0x638ac6f9,
 
     // Bytecode for solidity transfer(address,uint256) = a9059cbb
     ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL = 0xa9059cbb,
@@ -52,6 +51,7 @@ enum {
 };
 
 typedef enum {
+    CMA_PARSER_INPUT_TYPE_NONE,
     CMA_PARSER_INPUT_TYPE_AUTO,
     CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT,
     CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT,
@@ -211,6 +211,15 @@ typedef enum {
     CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH,
 } cma_parser_voucher_type_t;
 
+enum {
+    CMA_PARSER_SELECTOR_SIZE = 4,
+    CMA_PARSER_ETHER_VOUCHER_PAYLOAD_SIZE = 0,
+    CMA_PARSER_ERC20_VOUCHER_PAYLOAD_SIZE = CMA_PARSER_SELECTOR_SIZE + 2 * CMA_ABI_U256_LENGTH,
+    CMA_PARSER_ERC721_VOUCHER_PAYLOAD_SIZE = CMA_PARSER_SELECTOR_SIZE + 3 * CMA_ABI_U256_LENGTH,
+    CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE = CMA_PARSER_SELECTOR_SIZE + 6 * CMA_ABI_U256_LENGTH,
+    CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE = CMA_PARSER_SELECTOR_SIZE + 8 * CMA_ABI_U256_LENGTH,
+};
+
 typedef struct cma_parser_ether_voucher_fields {
     cma_amount_t amount;
 } cma_parser_ether_voucher_fields_t;
@@ -236,20 +245,20 @@ typedef struct cma_parser_erc1155_batch_voucher_fields {
 } cma_parser_erc1155_batch_voucher_fields_t;
 
 typedef struct cma_parser_voucher_data {
-    cma_abi_address_t *receiver;
+    cma_abi_address_t receiver;
     union {
         cma_parser_ether_voucher_fields_t ether_voucher_fields;
         cma_parser_erc20_voucher_fields_t erc20_voucher_fields;
         cma_parser_erc721_voucher_fields_t erc721_voucher_fields;
         cma_parser_erc1155_single_voucher_fields_t erc1155_single_voucher_fields;
         cma_parser_erc1155_batch_voucher_fields_t erc1155_batch_voucher_fields;
-    } u;
+    };
 } cma_parser_voucher_data_t;
 
 typedef struct cma_voucher {
     cmt_abi_address_t address;
     cmt_abi_u256_t value;
-    cmt_abi_bytes_t data;
+    cmt_abi_bytes_t payload;
 } cma_voucher_t;
 
 enum {
@@ -270,7 +279,7 @@ CMA_PARSER_API int cma_parser_decode_inspect(cma_parser_input_type_t type, const
     cma_parser_input_t *parser_input);
 
 // encode voucher
-CMA_PARSER_API int cma_parser_encode_voucher(cma_parser_voucher_type_t type, cma_abi_address_t *app_address,
+CMA_PARSER_API int cma_parser_encode_voucher(cma_parser_voucher_type_t type, const cma_abi_address_t *app_address,
     const cma_parser_voucher_data_t *voucher_request, cma_voucher_t *voucher);
 
 // get error message

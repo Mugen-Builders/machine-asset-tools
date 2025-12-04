@@ -45,8 +45,8 @@ void test_ether_deposit(void) {
     }};
     // clang-format on
 
-    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
-    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_deposit.exec_layer_data.length == 0);
 
     // clang-format off
@@ -71,8 +71,8 @@ void test_ether_deposit(void) {
     assert(
         cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &advance2, &parser_input) == CMA_PARSER_SUCCESS);
 
-    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
-    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.sender.data, address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_deposit.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_deposit.exec_layer_data.length == sizeof(data2));
     assert(memcmp(parser_input.ether_deposit.exec_layer_data.data, data2, sizeof(data2)) == 0);
 
@@ -155,7 +155,7 @@ void test_ether_withdraw(void) {
     }};
     // clang-format on
 
-    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_withdrawal.exec_layer_data.length == 0);
 
     // clang-format off
@@ -187,7 +187,7 @@ void test_ether_withdraw(void) {
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL, &advance2, &parser_input) ==
         CMA_PARSER_SUCCESS);
 
-    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_withdrawal.exec_layer_data.length == sizeof(data2));
     assert(memcmp(parser_input.ether_withdrawal.exec_layer_data.data, data2, sizeof(data2)) == 0);
 
@@ -289,8 +289,8 @@ void test_ether_transfer(void) {
     }};
     // clang-format on
 
-    assert(memcmp(parser_input.ether_transfer.receiver.data, receiver1.data, CMT_ABI_U256_LENGTH) == 0);
-    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_transfer.receiver.data, receiver1.data, CMA_ABI_ID_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_transfer.exec_layer_data.length == 0);
 
     // clang-format off
@@ -326,7 +326,7 @@ void test_ether_transfer(void) {
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER, &advance2, &parser_input) ==
         CMA_PARSER_SUCCESS);
 
-    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_transfer.exec_layer_data.length == sizeof(data2));
     assert(memcmp(parser_input.ether_transfer.exec_layer_data.data, data2, sizeof(data2)) == 0);
 
@@ -378,10 +378,69 @@ void test_ether_transfer(void) {
     printf("%s passed\n", __FUNCTION__);
 }
 
+void test_ether_voucher(void) {
+    // clang-format off
+    cma_parser_voucher_data_t voucher_req = { .receiver = { .data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, // address 20 bytes
+    }}, .ether_voucher_fields = { .amount = { .data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11, // amount 32 bytes
+    }}}};
+    uint8_t voucher_payload_buffer[0];
+    cma_voucher_t voucher = { .payload = {
+        .length = sizeof(voucher_payload_buffer),
+        .data = voucher_payload_buffer
+    }};
+    // clang-format on
+
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, NULL, NULL, NULL) == -EINVAL);
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, NULL, &voucher_req, NULL) == -EINVAL);
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, NULL, NULL, &voucher) == -EINVAL);
+
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_NONE, NULL, &voucher_req, &voucher) == -EINVAL);
+    assert(
+        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, NULL, &voucher_req, &voucher) == CMA_PARSER_SUCCESS);
+
+    // clang-format off
+    cma_abi_address_t receiver1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+    }};
+    cma_amount_t amount1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    }};
+    // clang-format on
+
+    assert(voucher.payload.length == 0);
+    assert(voucher.payload.data == NULL);
+
+    assert(memcmp(voucher.address.data, receiver1.data, sizeof(receiver1)) == 0);
+    assert(memcmp(voucher.value.data, amount1.data, sizeof(amount1)) == 0);
+
+    // clang-format off
+    cma_abi_address_t address2 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x23,
+    }};
+    // clang-format on
+
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, &address2, &voucher_req, &voucher) ==
+        CMA_PARSER_SUCCESS);
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
 int main(void) {
     test_ether_deposit();
     test_ether_withdraw();
     test_ether_transfer();
+    test_ether_voucher();
     printf("All parser tests passed!\n");
     return 0;
 }

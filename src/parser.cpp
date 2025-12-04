@@ -76,7 +76,44 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
             cma_parser_decode_ether_transfer(*input, *parser_input);
             break;
         default:
-            throw CmaException("Invalid type", -EINVAL);
+            throw CmaException("Invalid advance decode type", -EINVAL);
+    }
+    return cma_parser_result_success();
+} catch (...) {
+    return cma_parser_result_failure();
+}
+
+auto cma_parser_encode_voucher(cma_parser_voucher_type_t type, const cma_abi_address_t *app_address,
+    const cma_parser_voucher_data_t *voucher_request, cma_voucher_t *voucher) -> int try {
+    if (voucher_request == nullptr) {
+        throw CmaException("Invalid request", -EINVAL);
+    }
+    if (voucher == nullptr) {
+        throw CmaException("Invalid voucher output", -EINVAL);
+    }
+    switch (type) {
+        case CMA_PARSER_VOUCHER_TYPE_ETHER:
+            cma_parser_encode_ether_voucher(*voucher_request, *voucher);
+            break;
+        case CMA_PARSER_VOUCHER_TYPE_ERC20:
+            break;
+        case CMA_PARSER_VOUCHER_TYPE_ERC721:
+            if (app_address == nullptr) {
+                throw CmaException("Invalid app address", -EINVAL);
+            }
+            break;
+        // case CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE:
+        //     if (app_address == nullptr) {
+        //         throw CmaException("Invalid app address", -EINVAL);
+        //     }
+        //     break;
+        // case CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH:
+        //     if (app_address == nullptr) {
+        //         throw CmaException("Invalid app address", -EINVAL);
+        //     }
+        //     break;
+        default:
+            throw CmaException("Invalid voucher type", -EINVAL);
     }
     return cma_parser_result_success();
 } catch (...) {

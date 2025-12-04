@@ -62,7 +62,7 @@ typedef struct cma_ledger_account {
     union {
         cma_account_id_t account_id;
         struct {
-            uint8_t fix[CMT_ABI_U256_LENGTH - CMT_ABI_ADDRESS_LENGTH];
+            uint8_t fix[CMA_ABI_ID_LENGTH - CMA_ABI_ADDRESS_LENGTH];
             cma_abi_address_t address;
         } __attribute__((__packed__));
     };

@@ -132,7 +132,7 @@ void test_asset_with_token_address(void) {
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id_to_find, &token_address_find, NULL, CMA_LEDGER_ASSET_TYPE_ID,
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
 
-    assert(memcmp(token_address_find.data, token_address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(token_address_find.data, token_address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -202,8 +202,8 @@ void test_asset_with_token_address_and_id(void) {
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id_to_find, &token_address_find, &token_id_find,
                CMA_LEDGER_ASSET_TYPE_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
 
-    assert(memcmp(token_address_find.data, token_address1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
-    assert(memcmp(token_id_find.data, token_id1.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(token_address_find.data, token_address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(token_id_find.data, token_id1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -287,7 +287,7 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCES
     cma_ledger_account_t account_found;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_to_find, &account_found, NULL, CMA_LEDGER_ACCOUNT_TYPE_ID,
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
-    assert(memcmp(account_found.address.data, account1.address.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found.address.data, account1.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
     cma_ledger_account_t account_to_find = {.account_id = {.data = {
@@ -321,11 +321,11 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCES
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, &account_found2, &address2, CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS,
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
-    assert(memcmp(account_found2.address.data, account2.address.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found2.address.data, account2.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_found2, &address2,
 CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
-    assert(memcmp(account_found2.address.data, account2.address.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found2.address.data, account2.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
     cma_abi_address_t address3 = {.data = {
@@ -338,7 +338,7 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCES
     cma_ledger_account_t account_created;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_created, &account_created, &address3,
 CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS); assert(account_id_created == 2);
-    assert(memcmp(account_created.address.data, address3.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_created.address.data, address3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -392,7 +392,7 @@ void test_account_full_id(void) {
     cma_ledger_account_t account_found;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_to_find, &account_found, NULL, CMA_LEDGER_ACCOUNT_TYPE_ID,
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
-    assert(memcmp(account_found.address.data, account1.address.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found.address.data, account1.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
     cma_ledger_account_t account_to_find = {.address = {.data = {
@@ -436,11 +436,11 @@ CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); 
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, &account_found2, &full_account2,
 CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
-    assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_found2, &full_account2,
 CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
-    assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
     cma_account_id_t full_account3 = {.data = {
@@ -455,7 +455,7 @@ CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); 
     cma_ledger_account_t account_created;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_created, &account_created, &full_account3,
 CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS); assert(account_id_created == 2);
-    assert(memcmp(account_created.account_id.data, full_account3.data, CMT_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(account_created.account_id.data, full_account3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -484,16 +484,16 @@ void test_asset_total_supply_balance(void) {
     }};
     // clang-format on;
 
-    assert(memcmp(out_total_supply.data, zero_amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(out_total_supply.data, zero_amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     cma_amount_t balance = {};
     assert(cma_ledger_get_balance(&ledger, 1000, 1000, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, zero_amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, zero_amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, 1000, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, zero_amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, zero_amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     cma_ledger_account_id_t account_id;
     assert(cma_ledger_retrieve_account(&ledger, &account_id, NULL, NULL, CMA_LEDGER_ACCOUNT_TYPE_ID,
@@ -501,7 +501,7 @@ void test_asset_total_supply_balance(void) {
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, zero_amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, zero_amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -546,12 +546,12 @@ void test_deposit(void) {
     cma_amount_t supply = {};
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     cma_amount_t balance = {};
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     // clang-format off
     cma_amount_t amount2 = {.data = {
@@ -567,11 +567,11 @@ void test_deposit(void) {
 
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     // clang-format off
     cma_amount_t amount4 = {.data = {
@@ -593,15 +593,15 @@ void test_deposit(void) {
 
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount4.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount4.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id2, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -667,12 +667,12 @@ void test_withdraw(void) {
     cma_amount_t supply = {};
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     cma_amount_t balance = {};
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     // clang-format off
     cma_amount_t amount4 = {.data = {
@@ -691,15 +691,15 @@ void test_withdraw(void) {
 
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount4.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount4.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id2, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount2.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
@@ -783,7 +783,7 @@ void test_transfer(void) {
     cma_amount_t supply = {};
     assert(cma_ledger_get_total_supply(&ledger, asset_id, &supply) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(supply.data, amount4.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(supply.data, amount4.data, CMA_ABI_U256_LENGTH) == 0);
 
     // clang-format off
     cma_amount_t amount3 = {.data = {
@@ -797,10 +797,10 @@ void test_transfer(void) {
     cma_amount_t balance = {};
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount.data, CMA_ABI_U256_LENGTH) == 0);
     assert(cma_ledger_get_balance(&ledger, asset_id, account_id2, &balance) ==
         CMA_LEDGER_SUCCESS);
-    assert(memcmp(balance.data, amount3.data, CMT_ABI_U256_LENGTH) == 0);
+    assert(memcmp(balance.data, amount3.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
     printf("%s passed\n", __FUNCTION__);
