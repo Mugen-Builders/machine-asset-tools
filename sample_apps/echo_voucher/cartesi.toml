@@ -1,0 +1,17 @@
+[machine]
+ram_length = "32Mi"
+entrypoint = "exec /mnt/app/echo_voucher"
+
+[drives.root]
+builder = "docker"
+dockerfile = "Dockerfile"
+target = "base"
+format = "ext2"
+avoid_overwrite = "true"
+extra_size = "2Mb"
+buildx = true
+
+[drives.app]
+builder = "directory"
+directory = "build/samples/echo_voucher"
+format = "sqfs"
