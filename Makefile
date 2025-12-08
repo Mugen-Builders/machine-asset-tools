@@ -65,7 +65,7 @@ $(libcma_SO): $(libcma_OBJ)
 
 libcma: $(libcma_LIB) $(libcma_SO)
 
-# #-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 test_OBJDIR := build/test
 unittests_BINS := \
@@ -91,16 +91,42 @@ test-%: $(test_OBJDIR)/%
 	./$<
 
 #-------------------------------------------------------------------------------
+
+sample_OBJDIR := build/samples
+sample_BINS := \
+	$(sample_OBJDIR)/echo_voucher/echo_voucher
+
+$(sample_OBJDIR)/%: sample_apps/%.cpp $(libcma_LIB)
+	mkdir -p $(shell dirname $@)
+	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) -o $@ $< -L$(libcma_OBJDIR) -lcma -lcmt
+
+samples: $(sample_BINS)
+
+sample-%: $(sample_OBJDIR)/%/%
+
+#-------------------------------------------------------------------------------
+
+HDRS := $(patsubst %,include/libcma/%, types.h ledger.h parser.h)
+build/ffi.h: $(HDRS)
+	cat $^ | sed \
+		-e '/\/\*/,/\*\//d' \
+		-e '/#if\s/,/#endif/d' \
+		-e '/#define/d' \
+		-e '/#endif/d' \
+		-e '/#ifndef/d' \
+		-e '/#include/d' > $@
+
+#-------------------------------------------------------------------------------
 LINTER_IGNORE_SOURCES=
 LINTER_IGNORE_HEADERS=
-LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c)))
+LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c) $(wildcard sample_apps/*.cpp)))
 LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcma/*.h)))
 
 CLANG_TIDY=clang-tidy
 CLANG_TIDY_TARGETS=$(patsubst %.cpp,%.clang-tidy,$(LINTER_SOURCES))
 
 CLANG_FORMAT=clang-format
-CLANG_FORMAT_FILES:=$(wildcard src/*.cpp) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard tools/*.c) $(wildcard include/libcma/*.h)
+CLANG_FORMAT_FILES:=$(wildcard src/*.cpp) $(wildcard src/*.h) $(wildcard tests/*.c) $(wildcard sample_apps/*.cpp) $(wildcard include/libcma/*.h)
 CLANG_FORMAT_IGNORE_FILES:=
 CLANG_FORMAT_FILES:=$(strip $(CLANG_FORMAT_FILES))
 CLANG_FORMAT_FILES:=$(filter-out $(CLANG_FORMAT_IGNORE_FILES),$(strip $(CLANG_FORMAT_FILES)))
@@ -110,9 +136,9 @@ SPACE:=$(EMPTY) $(EMPTY)
 CLANG_TIDY_HEADER_FILTER=$(CURDIR)/($(subst $(SPACE),|,$(LINTER_HEADERS)))
 
 %.clang-tidy: %.cpp
-	$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CXXFLAGS) 2>/dev/null
-	$(CXX) $(CXXFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
-	touch $@
+	@$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CXXFLAGS) 2>/dev/null
+	@$(CXX) $(CXXFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
+	@touch $@
 
 clangd-config:
 	@echo "$(CXXFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt

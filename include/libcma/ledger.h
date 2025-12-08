@@ -37,19 +37,19 @@ enum {
     CMA_LEDGER_ERROR_INSERTION_ERROR = -1009,
 };
 
-typedef enum : uint8_t {
+typedef enum {
     CMA_LEDGER_OP_FIND,
     CMA_LEDGER_OP_CREATE,
     CMA_LEDGER_OP_FIND_OR_CREATE,
 } cma_ledger_retrieve_operation_t;
 
-typedef enum : uint8_t {
+typedef enum {
     CMA_LEDGER_ASSET_TYPE_ID,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID,
 } cma_ledger_asset_type_t;
 
-typedef enum : uint8_t {
+typedef enum {
     CMA_LEDGER_ACCOUNT_TYPE_ID,
     CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS,
     CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID,

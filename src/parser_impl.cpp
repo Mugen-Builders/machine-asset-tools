@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -77,7 +78,7 @@ auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> v
     if (cmt_buf_length(buf) < CMA_ABI_ADDRESS_LENGTH) {
         throw CmaException("Invalid buffer length", -ENOBUFS);
     }
-    cma_abi_get_bytes(buf, CMA_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(address->data));
+    cma_abi_get_bytes(buf, CMA_ABI_ADDRESS_LENGTH, std::begin(address->data));
     cmt_buf_split(buf, CMA_ABI_ADDRESS_LENGTH, &lbuf, buf);
 }
 
@@ -86,6 +87,30 @@ auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> v
 /*
  * Decode advance functions
  */
+
+void cma_parser_decode_auto(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(WITHDRAW_ETHER)) == 0) {
+        cma_parser_decode_ether_withdrawal(input, parser_input);
+        return;
+    }
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(WITHDRAW_ERC20)) == 0) {
+        cma_parser_decode_erc20_withdrawal(input, parser_input);
+        return;
+    }
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ETHER)) == 0) {
+        cma_parser_decode_ether_transfer(input, parser_input);
+        return;
+    }
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ERC20)) == 0) {
+        cma_parser_decode_erc20_transfer(input, parser_input);
+        return;
+    }
+    throw CmaException("Invalid funsel", -EINVAL);
+}
 
 void cma_parser_decode_ether_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
     cmt_buf_t buf_data = {};
@@ -105,8 +130,8 @@ void cma_parser_decode_erc20_deposit(const cmt_rollup_advance_t &input, cma_pars
     cmt_buf_t buf_data = {};
     cmt_buf_t *buf = &buf_data;
     cmt_buf_init(buf, input.payload.length, input.payload.data);
-    cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.sender);
     cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.token);
+    cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.sender);
     const int err = cmt_abi_get_uint256(buf, &parser_input.erc20_deposit.amount);
     if (err != 0) {
         throw CmaException("Error getting amount", err);
@@ -229,6 +254,49 @@ void cma_parser_decode_ether_transfer(const cmt_rollup_advance_t &input, cma_par
     parser_input.type = CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER;
 }
 
+void cma_parser_decode_erc20_transfer(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset = &offset_data;
+
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ERC20));
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
+    }
+
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+    err = cmt_abi_get_address(buf, &parser_input.erc20_transfer.token);
+    if (err != 0) {
+        throw CmaException("Error getting token", err);
+    }
+    err = cmt_abi_get_uint256(buf, &parser_input.erc20_transfer.receiver);
+    if (err != 0) {
+        throw CmaException("Error getting receiver", err);
+    }
+    err = cmt_abi_get_uint256(buf, &parser_input.erc20_transfer.amount);
+    if (err != 0) {
+        throw CmaException("Error getting amount", err);
+    }
+    err = cmt_abi_get_bytes_s(buf, offset);
+    if (err != 0) {
+        throw CmaException("Error getting bytes offset", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset, &parser_input.erc20_transfer.exec_layer_data.length,
+        &parser_input.erc20_transfer.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
+    }
+    parser_input.type = CMA_PARSER_INPUT_TYPE_ERC20_TRANSFER;
+}
+
 /*
  * Decode inspect functions
  */
@@ -239,7 +307,7 @@ void cma_parser_decode_ether_transfer(const cmt_rollup_advance_t &input, cma_par
 
 auto cma_parser_encode_ether_voucher(const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
     const std::span receiver_span(voucher_request.receiver.data);
-    const std::span amount_span(voucher_request.ether_voucher_fields.amount.data);
+    const std::span amount_span(voucher_request.ether.amount.data);
     std::span voucher_address_span(voucher.address.data);
     std::span voucher_value_span(voucher.value.data);
     // 1: check sizes of voucher struct (not necessary for ether)
@@ -262,8 +330,8 @@ auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_re
     }
 
     const std::span receiver_span(voucher_request.receiver.data);
-    const std::span token_span(voucher_request.erc20_voucher_fields.token.data);
-    const std::span amount_span(voucher_request.erc20_voucher_fields.amount.data);
+    const std::span token_span(voucher_request.erc20.token.data);
+    const std::span amount_span(voucher_request.erc20.amount.data);
     std::span voucher_address_span(voucher.address.data);
     std::span voucher_value_span(voucher.value.data);
     std::span payload_span(static_cast<uint8_t *>(voucher.payload.data), voucher.payload.length);
@@ -276,8 +344,8 @@ auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_re
 
     // 4: copy funsel to payload
     Uint32Bytes funsel;
-    funsel.value = ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL;
-    std::ignore = std::copy_n(static_cast<uint8_t *>(funsel.bytes), CMA_PARSER_SELECTOR_SIZE, payload_span.begin());
+    funsel.value = convert_to_cmt_funsel(ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL);
+    std::ignore = std::copy_n(std::begin(funsel.bytes), CMA_PARSER_SELECTOR_SIZE, payload_span.begin());
     payload_span = payload_span.subspan(CMA_PARSER_SELECTOR_SIZE);
 
     // 5: copy receiver to payload

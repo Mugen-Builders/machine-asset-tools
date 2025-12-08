@@ -247,11 +247,11 @@ typedef struct cma_parser_erc1155_batch_voucher_fields {
 typedef struct cma_parser_voucher_data {
     cma_abi_address_t receiver;
     union {
-        cma_parser_ether_voucher_fields_t ether_voucher_fields;
-        cma_parser_erc20_voucher_fields_t erc20_voucher_fields;
-        cma_parser_erc721_voucher_fields_t erc721_voucher_fields;
-        cma_parser_erc1155_single_voucher_fields_t erc1155_single_voucher_fields;
-        cma_parser_erc1155_batch_voucher_fields_t erc1155_batch_voucher_fields;
+        cma_parser_ether_voucher_fields_t ether;
+        cma_parser_erc20_voucher_fields_t erc20;
+        cma_parser_erc721_voucher_fields_t erc721;
+        cma_parser_erc1155_single_voucher_fields_t erc1155_single;
+        cma_parser_erc1155_batch_voucher_fields_t erc1155_batch;
     };
 } cma_parser_voucher_data_t;
 

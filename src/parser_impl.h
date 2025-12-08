@@ -7,6 +7,9 @@ extern "C" {
 #include <libcmt/rollup.h>
 }
 
+// Decode functions
+auto cma_parser_decode_auto(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) -> void;
+
 // Decode advance functions
 auto cma_parser_decode_ether_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) -> void;
 auto cma_parser_decode_erc20_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) -> void;

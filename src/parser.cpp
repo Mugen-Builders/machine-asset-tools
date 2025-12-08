@@ -60,6 +60,9 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
         throw CmaException("Invalid parser input", -EINVAL);
     }
     switch (type) {
+        case CMA_PARSER_INPUT_TYPE_AUTO:
+            cma_parser_decode_auto(*input, *parser_input);
+            break;
         case CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT:
             cma_parser_decode_ether_deposit(*input, *parser_input);
             break;
@@ -75,8 +78,28 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
         case CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER:
             cma_parser_decode_ether_transfer(*input, *parser_input);
             break;
+        case CMA_PARSER_INPUT_TYPE_ERC20_TRANSFER:
+            cma_parser_decode_erc20_transfer(*input, *parser_input);
+            break;
         default:
             throw CmaException("Invalid advance decode type", -EINVAL);
+    }
+    return cma_parser_result_success();
+} catch (...) {
+    return cma_parser_result_failure();
+}
+
+auto cma_parser_decode_inspect(cma_parser_input_type_t type, const cmt_rollup_inspect_t *input,
+    cma_parser_input_t *parser_input) -> int try {
+    if (input == nullptr) {
+        throw CmaException("Invalid input", -EINVAL);
+    }
+    if (parser_input == nullptr) {
+        throw CmaException("Invalid parser input", -EINVAL);
+    }
+    switch (type) {
+        default:
+            throw CmaException("Invalid inspect decode type", -EINVAL);
     }
     return cma_parser_result_success();
 } catch (...) {
@@ -96,6 +119,7 @@ auto cma_parser_encode_voucher(cma_parser_voucher_type_t type, const cma_abi_add
             cma_parser_encode_ether_voucher(*voucher_request, *voucher);
             break;
         case CMA_PARSER_VOUCHER_TYPE_ERC20:
+            cma_parser_encode_erc20_voucher(*voucher_request, *voucher);
             break;
         case CMA_PARSER_VOUCHER_TYPE_ERC721:
             if (app_address == nullptr) {
