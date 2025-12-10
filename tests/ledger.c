@@ -281,7 +281,8 @@ void test_account_address(void) {
 
     cma_ledger_account_id_t account_id_found;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account1, NULL,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 0);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+    assert(account_id_found == 0);
 
     cma_ledger_account_id_t account_id_to_find = 0;
     cma_ledger_account_t account_found;
@@ -300,11 +301,12 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCES
 
     account_id_found = 99;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_to_find, NULL,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 0);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+    assert(account_id_found == 0);
 
     cma_ledger_account_t account_found2 = {};
     assert(cma_ledger_retrieve_account(&ledger, &account_id_to_find, &account_found2, NULL,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
 
     // clang-format off
     cma_abi_address_t address2 = {.data = {
@@ -317,14 +319,15 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, NULL, &address2,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+    assert(account_id_found == 1);
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, &account_found2, &address2, CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS,
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
     assert(memcmp(account_found2.address.data, account2.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_found2, &address2,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
     assert(memcmp(account_found2.address.data, account2.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
@@ -337,7 +340,8 @@ CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCES
     cma_ledger_account_id_t account_id_created;
     cma_ledger_account_t account_created;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_created, &account_created, &address3,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS); assert(account_id_created == 2);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS);
+    assert(account_id_created == 2);
     assert(memcmp(account_created.address.data, address3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
@@ -402,7 +406,7 @@ void test_account_full_id(void) {
     // clang-format on;
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_to_find, NULL,
-CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
+        CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND);
 
     // clang-format off
     cma_ledger_account_t account_to_find2 = {.address = {.data = {
@@ -432,14 +436,16 @@ CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ACCO
                CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, NULL, &full_account2,
-CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
+        CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+    assert(account_id_found == 1);
 
     assert(cma_ledger_retrieve_account(&ledger, NULL, &account_found2, &full_account2,
-CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+        CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
     assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_retrieve_account(&ledger, &account_id_found, &account_found2, &full_account2,
-CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); assert(account_id_found == 1);
+        CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+    assert(account_id_found == 1);
     assert(memcmp(account_found2.account_id.data, account2.account_id.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     // clang-format off
@@ -454,7 +460,8 @@ CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS); 
     cma_ledger_account_id_t account_id_created;
     cma_ledger_account_t account_created;
     assert(cma_ledger_retrieve_account(&ledger, &account_id_created, &account_created, &full_account3,
-CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS); assert(account_id_created == 2);
+        CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID, CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS);
+    assert(account_id_created == 2);
     assert(memcmp(account_created.account_id.data, full_account3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);

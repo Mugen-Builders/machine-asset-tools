@@ -1,6 +1,6 @@
 [machine]
 ram_length = "32Mi"
-entrypoint = "/mnt/app/echo_voucher"
+entrypoint = "/mnt/app/wallet_app"
 
 [drives.root]
 builder = "docker"
@@ -13,5 +13,5 @@ buildx = true
 
 [drives.app]
 builder = "directory"
-directory = "build/samples/echo_voucher"
+directory = "build/samples/wallet_app"
 format = "sqfs"

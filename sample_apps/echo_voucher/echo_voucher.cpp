@@ -135,9 +135,13 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
     cmt_rollup_advance_t input{};
     int err = cmt_rollup_read_advance_state(rollup, &input);
     if (err < 0) {
-        std::ignore = std::fprintf(stderr, "[app] unable to read advance state: %s\n", std::strerror(-err));
-        std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
-        return true; // No reverts
+        // std::ignore = std::fprintf(stderr, "[app] unable to read advance state: %s\n", std::strerror(-err));
+        // std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+        // return true; // No reverts
+        std::ignore =
+            std::fprintf(stderr, "[app] unable to read advance state: %s\n", std::strerror(-err));
+        std::ignore = std::fprintf(stderr, "[app] forcing exit\n");
+        exit(-EINVAL); // force exit. Exceptional error
     }
 
     std::ignore = std::fprintf(stdout, "[app] advance request with size %zu\n", input.payload.length);
@@ -174,7 +178,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
 
         // send voucher
         if (!rollup_emit_voucher(rollup, voucher.address, voucher.value, voucher.payload)) {
-            std::ignore = std::fprintf(stderr, "[app] unable to emitting ether voucher: %d - %s\n", -err,
+            std::ignore = std::fprintf(stderr, "[app] unable to emit ether voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
             return true; // No reverts
@@ -218,7 +222,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
 
         // send voucher
         if (!rollup_emit_voucher(rollup, voucher.address, voucher.value, voucher.payload)) {
-            std::ignore = std::fprintf(stderr, "[app] unable to emitting erc20 voucher: %d - %s\n", -err,
+            std::ignore = std::fprintf(stderr, "[app] unable to emit erc20 voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
             return true; // No reverts

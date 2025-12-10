@@ -22,3 +22,12 @@ RUN apk add \
     clang=20.1.8-r0 \
     clang-dev=20.1.8-r0 \
     cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
+
+# ARG NLOHMANN_JSON_VERSION=3.12.0
+# ARG NLOHMANN_JSON_SHA=aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63
+# RUN <<EOF
+# set -e
+# mkdir -p /usr/include/nlohmann
+# wget https://github.com/nlohmann/json/releases/download/v${NLOHMANN_JSON_VERSION}/json.hpp -O /usr/include/json.hpp
+# echo "${NLOHMANN_JSON_SHA} /usr/include/nlohmann/json.hpp" | sha256sum -c -s
+# EOF

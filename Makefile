@@ -2,16 +2,21 @@
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
-CFLAGS += -Wvla -O2 -g -Wall -Wextra -Iinclude \
-          	-fno-strict-aliasing -fno-strict-overflow
+
+INCLUDE_FLAGS = -Iinclude -I/tmp
+
+CFLAGS += -Wvla -O2 -g -Wall -Wextra \
+       		-fno-strict-aliasing -fno-strict-overflow \
+       		$(INCLUDE_FLAGS)
 # C++ warning flags
-WARN_CXXFLAGS = -Wall -Wextra -Iinclude -Wpedantic -Wformat \
+WARN_CXXFLAGS = -Wall -Wextra -Wpedantic -Wformat \
 			-Werror=format-security -Wno-missing-field-initializers
 
 OPT_CXXFLAGS = -O2
 
 CXXFLAGS += \
 	-std=c++20 \
+	$(INCLUDE_FLAGS) \
 	$(WARN_CXXFLAGS) \
 	$(OPT_CXXFLAGS)
 
@@ -38,6 +43,7 @@ docker-shell: docker-image
 	@docker run --platform linux/riscv64 -it --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) sh
 else
 all: libcma
+endif
 
 #-------------------------------------------------------------------------------
 
@@ -94,7 +100,8 @@ test-%: $(test_OBJDIR)/%
 
 sample_OBJDIR := build/samples
 sample_BINS := \
-	$(sample_OBJDIR)/echo_voucher/echo_voucher
+	$(sample_OBJDIR)/echo_voucher/echo_voucher \
+	$(sample_OBJDIR)/wallet_app/wallet_app
 
 $(sample_OBJDIR)/%: sample_apps/%.cpp $(libcma_LIB)
 	mkdir -p $(shell dirname $@)
@@ -119,7 +126,7 @@ build/ffi.h: $(HDRS)
 #-------------------------------------------------------------------------------
 LINTER_IGNORE_SOURCES=
 LINTER_IGNORE_HEADERS=
-LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c) $(wildcard sample_apps/*.cpp)))
+LINTER_SOURCES=$(filter-out $(LINTER_IGNORE_SOURCES),$(strip $(wildcard src/*.cpp) $(wildcard tests/*.c) $(wildcard sample_apps/**/*.cpp)))
 LINTER_HEADERS=$(filter-out $(LINTER_IGNORE_HEADERS),$(strip $(wildcard src/*.h) $(wildcard include/libcma/*.h)))
 
 CLANG_TIDY=clang-tidy
@@ -153,12 +160,9 @@ lint: $(CLANG_TIDY_TARGETS)
 
 #-------------------------------------------------------------------------------
 
-endif
-
 help:
 	@echo "Targets: (default: '*')"
-	@echo "* all          - Build libcma and host targets"
-	@echo "  host         - Build mock and tools targets"
+	@echo "* all          - Build libcma targets"
 	@echo "  libcma       - Build the library; to run on the cartesi-machine."
 	@echo "                 (requires the cartesi Linux headers to build)"
 	@echo "  test         - Build and run tests on top of the target library on the riscv system."
@@ -170,8 +174,6 @@ clean:
 	@rm -rf build
 	@rm -rf src/*.clang-tidy src/*.d
 	@rm -rf tests/*.clang-tidy tests/*.d
-	@rm -rf tools/*.clang-tidy tools/*.d
-	@rm -rf *.bin
 
 distclean: clean
 	@rm -rf compile_flags.txt

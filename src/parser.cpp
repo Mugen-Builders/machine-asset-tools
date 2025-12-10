@@ -61,7 +61,7 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
     }
     switch (type) {
         case CMA_PARSER_INPUT_TYPE_AUTO:
-            cma_parser_decode_auto(*input, *parser_input);
+            cma_parser_decode_advance_auto(*input, *parser_input);
             break;
         case CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT:
             cma_parser_decode_ether_deposit(*input, *parser_input);
@@ -97,7 +97,17 @@ auto cma_parser_decode_inspect(cma_parser_input_type_t type, const cmt_rollup_in
     if (parser_input == nullptr) {
         throw CmaException("Invalid parser input", -EINVAL);
     }
+
     switch (type) {
+        case CMA_PARSER_INPUT_TYPE_AUTO:
+            cma_parser_decode_inspect_auto(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_BALANCE:
+            cma_parser_decode_get_balance(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_SUPPLY:
+            cma_parser_decode_get_total_supply(*input, *parser_input);
+            break;
         default:
             throw CmaException("Invalid inspect decode type", -EINVAL);
     }

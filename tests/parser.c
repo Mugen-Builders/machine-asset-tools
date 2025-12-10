@@ -292,8 +292,7 @@ void test_ether_withdraw(void) {
     assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_withdrawal.exec_layer_data.length == 0);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL);
     assert(memcmp(parser_input.ether_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_withdrawal.exec_layer_data.length == 0);
@@ -431,8 +430,7 @@ void test_erc20_withdraw(void) {
     assert(memcmp(parser_input.erc20_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.erc20_withdrawal.exec_layer_data.length == 0);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ERC20_WITHDRAWAL);
     assert(memcmp(parser_input.erc20_withdrawal.token.data, token1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
     assert(memcmp(parser_input.erc20_withdrawal.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
@@ -598,8 +596,7 @@ void test_ether_transfer(void) {
     assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.ether_transfer.exec_layer_data.length == 0);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER);
     assert(memcmp(parser_input.ether_transfer.receiver.data, receiver1.data, CMA_ABI_ID_LENGTH) == 0);
     assert(memcmp(parser_input.ether_transfer.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
@@ -754,8 +751,7 @@ void test_erc20_transfer(void) {
     assert(memcmp(parser_input.erc20_transfer.amount.data, amount1.data, CMA_ABI_U256_LENGTH) == 0);
     assert(parser_input.erc20_transfer.exec_layer_data.length == 0);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ERC20_TRANSFER);
     assert(memcmp(parser_input.erc20_transfer.receiver.data, receiver1.data, CMA_ABI_ID_LENGTH) == 0);
     assert(memcmp(parser_input.erc20_transfer.token.data, token1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
@@ -1000,6 +996,248 @@ void test_erc20_voucher(void) {
     printf("%s passed\n", __FUNCTION__);
 }
 
+void test_get_balance(void) {
+    char *payload1 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\"]}";
+    cmt_rollup_inspect_t inspect1 = {.payload = {.length = strlen(payload1), .data = payload1}};
+
+    cma_parser_input_t parser_input;
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, NULL, NULL) == -EINVAL);
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, NULL, &parser_input) == -EINVAL);
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect1, NULL) == -EINVAL);
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect1, &parser_input) == CMA_PARSER_SUCCESS);
+
+    // clang-format off
+    cma_account_id_t account1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x01,
+    }};
+    // clang-format on
+
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT);
+    assert(memcmp(parser_input.balance.account.data, account1.data, sizeof(account1)) == 0);
+
+    char *payload2 = "{\"method\":\"ledger_getBalance\",\"params\":["
+                     "\"0x0000000000000000000000000000000000000000000000000000000000000001\"]}";
+    cmt_rollup_inspect_t inspect2 = {.payload = {.length = strlen(payload2), .data = payload2}};
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT);
+    assert(memcmp(parser_input.balance.account.data, account1.data, sizeof(account1)) == 0);
+
+    char *payload3 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                     "\"0x00000000000000000000000000000000000000ff\"]}";
+    cmt_rollup_inspect_t inspect3 = {.payload = {.length = strlen(payload3), .data = payload3}};
+
+    // clang-format off
+    cma_abi_address_t token1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
+    }};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect3, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT_TOKEN_ADDRESS);
+    assert(memcmp(parser_input.balance.account.data, account1.data, sizeof(account1)) == 0);
+    assert(memcmp(parser_input.balance.token.data, token1.data, sizeof(token1)) == 0);
+
+    char *payload4 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                     "\"0x00000000000000000000000000000000000000ff\","
+                     "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t inspect4 = {.payload = {.length = strlen(payload4), .data = payload4}};
+
+    // clang-format off
+    cma_token_id_t token_id1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    }};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect4, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT_TOKEN_ADDRESS_ID);
+    assert(memcmp(parser_input.balance.account.data, account1.data, sizeof(account1)) == 0);
+    assert(memcmp(parser_input.balance.token.data, token1.data, sizeof(token1)) == 0);
+    assert(memcmp(parser_input.balance.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+
+    char *payload4b = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                      "\"0x00000000000000000000000000000000000000ff\",\"0x11\"]}";
+    cmt_rollup_inspect_t inspect4b = {.payload = {.length = strlen(payload4b), .data = payload4b}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect4b, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(memcmp(parser_input.balance.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+
+    char *payload4c = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                      "\"0x00000000000000000000000000000000000000ff\",\"0x11\",\"abc\"]}";
+    cmt_rollup_inspect_t inspect4c = {.payload = {.length = strlen(payload4c), .data = payload4c}};
+    char *eld4c = "abc";
+    // clang-format off
+    uint8_t exec_layer_data_buffer[200];
+    cma_parser_input_t parser_input4c = { .balance = { .exec_layer_data = {
+        .length = sizeof(exec_layer_data_buffer),
+        .data = exec_layer_data_buffer
+    }}};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &inspect4c, &parser_input4c) == CMA_PARSER_SUCCESS);
+    assert(memcmp(parser_input4c.balance.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+    assert(
+        memcmp(parser_input4c.balance.exec_layer_data.data, eld4c, parser_input4c.balance.exec_layer_data.length) == 0);
+
+    char *m_payload5 = "abc";
+    cmt_rollup_inspect_t m_inspect5 = {.payload = {.length = strlen(m_payload5), .data = m_payload5}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect5, &parser_input) == -EINVAL);
+
+    char *m_payload6 = "{\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                       "\"0x00000000000000000000000000000000000000ff\","
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect6 = {.payload = {.length = strlen(m_payload6), .data = m_payload6}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect6, &parser_input) == -EINVAL);
+
+    char *m_payload7 = "{\"method\":\"ledger_getBalance\"}";
+    cmt_rollup_inspect_t m_inspect7 = {.payload = {.length = strlen(m_payload7), .data = m_payload7}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect7, &parser_input) == -EINVAL);
+
+    char *m_payload8 = "{\"method\":\"ledger_getBal\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                       "\"0x00000000000000000000000000000000000000ff\","
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect8 = {.payload = {.length = strlen(m_payload8), .data = m_payload8}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect8, &parser_input) == -EINVAL);
+
+    char *m_payload9 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x00000000000000000000000000000000000001\", "
+                       "\"0x00000000000000000000000000000000000000ff\","
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect9 = {.payload = {.length = strlen(m_payload9), .data = m_payload9}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect9, &parser_input) == -EINVAL);
+
+    char *m_payload10 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                        "\"\", \"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect10 = {.payload = {.length = strlen(m_payload10), .data = m_payload10}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect10, &parser_input) == -EINVAL);
+
+    char *m_payload11 = "{\"method\":\"ledger_getBalance\",\"params\":[\"0x0000000000000000000000000000000000000001\", "
+                        "\"0x00000000000000000000000000000000000000ff\","
+                        "\"0x000000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect11 = {.payload = {.length = strlen(m_payload11), .data = m_payload11}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_BALANCE, &m_inspect11, &parser_input) == -EINVAL);
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_AUTO, &inspect2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT);
+    assert(memcmp(parser_input.balance.account.data, account1.data, sizeof(account1)) == 0);
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
+void test_get_total_supply(void) {
+    char *payload1 = "{\"method\":\"ledger_getTotalSupply\"}";
+    cmt_rollup_inspect_t inspect1 = {.payload = {.length = strlen(payload1), .data = payload1}};
+
+    cma_parser_input_t parser_input;
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, NULL, NULL) == -EINVAL);
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, NULL, &parser_input) == -EINVAL);
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect1, NULL) == -EINVAL);
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect1, &parser_input) == CMA_PARSER_SUCCESS);
+
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_SUPPLY);
+
+    char *payload2 = "{\"method\":\"ledger_getTotalSupply\",\"params\":[]}";
+    cmt_rollup_inspect_t inspect2 = {.payload = {.length = strlen(payload2), .data = payload2}};
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_SUPPLY);
+
+    char *payload3 =
+        "{\"method\":\"ledger_getTotalSupply\",\"params\":[\"0x00000000000000000000000000000000000000ff\"]}";
+    cmt_rollup_inspect_t inspect3 = {.payload = {.length = strlen(payload3), .data = payload3}};
+
+    // clang-format off
+    cma_abi_address_t token1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
+    }};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect3, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_SUPPLY_TOKEN_ADDRESS);
+    assert(memcmp(parser_input.supply.token.data, token1.data, sizeof(token1)) == 0);
+
+    char *payload4 = "{\"method\":\"ledger_getTotalSupply\",\"params\":[\"0x00000000000000000000000000000000000000ff\","
+                     "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t inspect4 = {.payload = {.length = strlen(payload4), .data = payload4}};
+
+    // clang-format off
+    cma_token_id_t token_id1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    }};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect4, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_SUPPLY_TOKEN_ADDRESS_ID);
+    assert(memcmp(parser_input.supply.token.data, token1.data, sizeof(token1)) == 0);
+    assert(memcmp(parser_input.supply.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+
+    char *payload4b =
+        "{\"method\":\"ledger_getTotalSupply\",\"params\":[\"0x00000000000000000000000000000000000000ff\",\"0x11\"]}";
+    cmt_rollup_inspect_t inspect4b = {.payload = {.length = strlen(payload4b), .data = payload4b}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect4b, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(memcmp(parser_input.supply.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+
+    char *payload4c = "{\"method\":\"ledger_getTotalSupply\",\"params\":["
+                      "\"0x00000000000000000000000000000000000000ff\",\"0x11\",\"abc\"]}";
+    cmt_rollup_inspect_t inspect4c = {.payload = {.length = strlen(payload4c), .data = payload4c}};
+    char *eld4c = "abc";
+    // clang-format off
+    uint8_t exec_layer_data_buffer[200];
+    cma_parser_input_t parser_input4c = { .supply = { .exec_layer_data = {
+        .length = sizeof(exec_layer_data_buffer),
+        .data = exec_layer_data_buffer
+    }}};
+    // clang-format on
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &inspect4c, &parser_input4c) == CMA_PARSER_SUCCESS);
+    assert(memcmp(parser_input4c.supply.token_id.data, token_id1.data, sizeof(token_id1)) == 0);
+    assert(
+        memcmp(parser_input4c.supply.exec_layer_data.data, eld4c, parser_input4c.supply.exec_layer_data.length) == 0);
+
+    char *m_payload5 = "abc";
+    cmt_rollup_inspect_t m_inspect5 = {.payload = {.length = strlen(m_payload5), .data = m_payload5}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &m_inspect5, &parser_input) == -EINVAL);
+
+    char *m_payload6 = "{\"params\":[\"0x00000000000000000000000000000000000000ff\","
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect6 = {.payload = {.length = strlen(m_payload6), .data = m_payload6}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &m_inspect6, &parser_input) == -EINVAL);
+
+    char *m_payload7 =
+        "{\"method\":\"ledger_getTotalSupply\",\"params\":[\"0x00000000000000000000000000000000000000ff\","
+        "\"0x000000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect7 = {.payload = {.length = strlen(m_payload7), .data = m_payload7}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &m_inspect7, &parser_input) == -EINVAL);
+
+    char *m_payload8 = "{\"method\":\"ledger_getTot\",\"params\":[\"0x00000000000000000000000000000000000000ff\","
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect8 = {.payload = {.length = strlen(m_payload8), .data = m_payload8}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &m_inspect8, &parser_input) == -EINVAL);
+
+    char *m_payload9 = "{\"method\":\"ledger_getTotalSupply\",\"params\":[\"\", "
+                       "\"0x0000000000000000000000000000000000000000000000000000000000000011\"]}";
+    cmt_rollup_inspect_t m_inspect9 = {.payload = {.length = strlen(m_payload9), .data = m_payload9}};
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_SUPPLY, &m_inspect9, &parser_input) == -EINVAL);
+
+    assert(cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_AUTO, &inspect2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(parser_input.type == CMA_PARSER_INPUT_TYPE_SUPPLY);
+
+    printf("%s passed\n", __FUNCTION__);
+}
+
 int main(void) {
     test_ether_deposit();
     test_erc20_deposit();
@@ -1009,6 +1247,8 @@ int main(void) {
     test_erc20_transfer();
     test_ether_voucher();
     test_erc20_voucher();
+    test_get_balance();
+    test_get_total_supply();
     printf("All parser tests passed!\n");
     return 0;
 }

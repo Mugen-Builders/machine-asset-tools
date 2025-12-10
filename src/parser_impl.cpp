@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <nlohmann/json.hpp>
 #include <span>
 
 extern "C" {
@@ -16,12 +17,17 @@ extern "C" {
 #include "parser_impl.h"
 #include "utils.h"
 
+#define GET_BALANCE "ledger_getBalance"
+#define GET_TOTAL_SUPPLY "ledger_getTotalSupply"
+
 /*
  * Aux functions
  */
 
 enum {
     CMA_ETHER_VOUCHER_SIZE = 0,
+    CMA_ADDRESS_HEX_LENGTH = 2 + 2 * CMA_ABI_ADDRESS_LENGTH,
+    CMA_MAX_ID_HEX_LENGTH = 2 + 2 * CMA_ABI_U256_LENGTH,
 };
 
 namespace {
@@ -82,13 +88,190 @@ auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> v
     cmt_buf_split(buf, CMA_ABI_ADDRESS_LENGTH, &lbuf, buf);
 }
 
+auto cma_parser_decode_get_balance_json(const nlohmann::json &json_input, cma_parser_input_t &parser_input) -> void {
+    if (!json_input.contains("params")) {
+        throw CmaException("Missing params key", -EINVAL);
+    }
+    auto params = json_input.at("params").get<std::vector<std::string> >();
+
+    if (params.size() == 0 || params.size() > 4) {
+        throw CmaException("Invalid params size", -EINVAL);
+    }
+
+    std::string account_str = params[0];
+    std::span account_span(parser_input.balance.account.data);
+    size_t offset = 0;
+    if (account_str.size() == CMA_ADDRESS_HEX_LENGTH) {
+        offset = CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH;
+        std::fill_n(account_span.begin(), offset, (uint8_t) 0);
+    } else if (account_str.size() != CMA_MAX_ID_HEX_LENGTH) {
+        throw CmaException("Invalid account address", -EINVAL);
+    }
+    if (account_str.substr(0, 2) != "0x") {
+        throw CmaException("Invalid account address", -EINVAL);
+    }
+
+    for (size_t i = 2; i < account_str.length(); i += 2) {
+        std::string byteString = account_str.substr(i, 2);
+        uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        account_span[offset++] = byteValue;
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT;
+
+    if (params.size() == 1) {
+        return;
+    }
+
+    std::string token_str = params[1];
+    std::span token_span(parser_input.balance.token.data);
+    if (token_str.size() != CMA_ADDRESS_HEX_LENGTH) {
+        throw CmaException("Invalid token address", -EINVAL);
+    }
+    if (token_str.substr(0, 2) != "0x") {
+        throw CmaException("Invalid token address", -EINVAL);
+    }
+
+    offset = 0;
+    for (size_t i = 2; i < token_str.length(); i += 2) {
+        std::string byteString = token_str.substr(i, 2);
+        uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        token_span[offset++] = byteValue;
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT_TOKEN_ADDRESS;
+
+    if (params.size() == 2) {
+        return;
+    }
+
+    std::string token_id_str = params[2];
+    std::span token_id_span(parser_input.balance.token_id.data);
+    if (token_id_str.size() > CMA_MAX_ID_HEX_LENGTH || token_id_str.size() % 2 != 0) {
+        throw CmaException("Invalid token id", -EINVAL);
+    }
+    if (token_id_str.substr(0, 2) != "0x") {
+        throw CmaException("Invalid token id", -EINVAL);
+    }
+
+    offset = 0;
+    if (token_id_str.size() < CMA_MAX_ID_HEX_LENGTH) {
+        offset = (CMA_MAX_ID_HEX_LENGTH - token_id_str.size()) / 2;
+        std::fill_n(token_id_span.begin(), offset, (uint8_t) 0);
+    }
+
+    for (size_t i = 2; i < token_id_str.length(); i += 2) {
+        std::string byteString = token_id_str.substr(i, 2);
+        uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        token_id_span[offset++] = byteValue;
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_BALANCE_ACCOUNT_TOKEN_ADDRESS_ID;
+
+    if (params.size() == 3 || parser_input.balance.exec_layer_data.data == nullptr ||
+        parser_input.balance.exec_layer_data.length == 0) {
+        parser_input.balance.exec_layer_data.data = nullptr;
+        parser_input.balance.exec_layer_data.length = 0;
+        return;
+    }
+
+    std::string exec_layer_data_str = params[3];
+    int min_exec_data_length = std::min(exec_layer_data_str.size(), parser_input.balance.exec_layer_data.length);
+    std::span exec_layer_data_span(static_cast<uint8_t *>(parser_input.balance.exec_layer_data.data),
+        parser_input.balance.exec_layer_data.length);
+    std::ignore = std::copy_n(exec_layer_data_str.begin(), min_exec_data_length, exec_layer_data_span.begin());
+    parser_input.balance.exec_layer_data.length = min_exec_data_length;
+}
+
+auto cma_parser_decode_get_total_supply_json(const nlohmann::json &json_input, cma_parser_input_t &parser_input)
+    -> void {
+    parser_input.type = CMA_PARSER_INPUT_TYPE_SUPPLY;
+    if (!json_input.contains("params")) {
+        parser_input.supply.exec_layer_data.data = nullptr;
+        parser_input.supply.exec_layer_data.length = 0;
+        return;
+    }
+    auto params = json_input.at("params").get<std::vector<std::string> >();
+
+    if (params.size() == 0) {
+        parser_input.supply.exec_layer_data.data = nullptr;
+        parser_input.supply.exec_layer_data.length = 0;
+        return;
+    }
+
+    if (params.size() > 3) {
+        throw CmaException("Invalid params size", -EINVAL);
+    }
+
+    std::string token_str = params[0];
+    std::span token_span(parser_input.supply.token.data);
+    if (token_str.size() != CMA_ADDRESS_HEX_LENGTH) {
+        throw CmaException("Invalid token address", -EINVAL);
+    }
+    if (token_str.substr(0, 2) != "0x") {
+        throw CmaException("Invalid token address", -EINVAL);
+    }
+
+    size_t offset = 0;
+    for (size_t i = 2; i < token_str.length(); i += 2) {
+        std::string byteString = token_str.substr(i, 2);
+        uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        token_span[offset++] = byteValue;
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_SUPPLY_TOKEN_ADDRESS;
+
+    if (params.size() == 1) {
+        parser_input.supply.exec_layer_data.data = nullptr;
+        parser_input.supply.exec_layer_data.length = 0;
+        return;
+    }
+
+    std::string token_id_str = params[1];
+    std::span token_id_span(parser_input.supply.token_id.data);
+    if (token_id_str.size() > CMA_MAX_ID_HEX_LENGTH || token_id_str.size() % 2 != 0) {
+        throw CmaException("Invalid token id", -EINVAL);
+    }
+    if (token_id_str.substr(0, 2) != "0x") {
+        throw CmaException("Invalid token id", -EINVAL);
+    }
+
+    offset = 0;
+    if (token_id_str.size() < CMA_MAX_ID_HEX_LENGTH) {
+        offset = (CMA_MAX_ID_HEX_LENGTH - token_id_str.size()) / 2;
+        std::fill_n(token_id_span.begin(), offset, (uint8_t) 0);
+    }
+
+    for (size_t i = 2; i < token_id_str.length(); i += 2) {
+        std::string byteString = token_id_str.substr(i, 2);
+        uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        token_id_span[offset++] = byteValue;
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_SUPPLY_TOKEN_ADDRESS_ID;
+
+    if (params.size() == 2 || parser_input.supply.exec_layer_data.data == nullptr ||
+        parser_input.supply.exec_layer_data.length == 0) {
+        parser_input.supply.exec_layer_data.data = nullptr;
+        parser_input.supply.exec_layer_data.length = 0;
+        return;
+    }
+
+    std::string exec_layer_data_str = params[2];
+    int min_exec_data_length = std::min(exec_layer_data_str.size(), parser_input.supply.exec_layer_data.length);
+    std::span exec_layer_data_span(static_cast<uint8_t *>(parser_input.supply.exec_layer_data.data),
+        parser_input.supply.exec_layer_data.length);
+    std::ignore = std::copy_n(exec_layer_data_str.begin(), min_exec_data_length, exec_layer_data_span.begin());
+    parser_input.supply.exec_layer_data.length = min_exec_data_length;
+}
+
 } // namespace
 
 /*
  * Decode advance functions
  */
 
-void cma_parser_decode_auto(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+void cma_parser_decode_advance_auto(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
     cmt_buf_t buf_data = {};
     cmt_buf_t *buf = &buf_data;
     cmt_buf_init(buf, input.payload.length, input.payload.data);
@@ -300,6 +483,65 @@ void cma_parser_decode_erc20_transfer(const cmt_rollup_advance_t &input, cma_par
 /*
  * Decode inspect functions
  */
+
+auto cma_parser_decode_inspect_auto(const cmt_rollup_inspect_t &input, cma_parser_input_t &parser_input) -> void try {
+    std::span payload_span(static_cast<uint8_t *>(input.payload.data), input.payload.length);
+    std::string json_str(payload_span.begin(), payload_span.end());
+
+    auto json_input = nlohmann::json::parse(json_str);
+
+    if (!json_input.contains("method")) {
+        throw CmaException("Missing method key", -EINVAL);
+    }
+    auto method = json_input.at("method").get<std::string>();
+
+    if (method == GET_BALANCE) {
+        cma_parser_decode_get_balance_json(json_input, parser_input);
+    } else if (method == GET_TOTAL_SUPPLY) {
+        cma_parser_decode_get_total_supply_json(json_input, parser_input);
+    } else {
+        throw CmaException("Invalid method", -EINVAL);
+    }
+} catch (nlohmann::json::parse_error &e) {
+    throw CmaException(std::string("Error parsing input: ").append(e.what()), -EINVAL);
+}
+
+auto cma_parser_decode_get_balance(const cmt_rollup_inspect_t &input, cma_parser_input_t &parser_input) -> void try {
+    std::span payload_span(static_cast<uint8_t *>(input.payload.data), input.payload.length);
+    std::string json_str(payload_span.begin(), payload_span.end());
+
+    auto json_input = nlohmann::json::parse(json_str);
+
+    if (!json_input.contains("method")) {
+        throw CmaException("Missing method key", -EINVAL);
+    }
+    if (json_input.at("method").get<std::string>() != GET_BALANCE) {
+        throw CmaException("Invalid method", -EINVAL);
+    }
+
+    cma_parser_decode_get_balance_json(json_input, parser_input);
+} catch (nlohmann::json::parse_error &e) {
+    throw CmaException(std::string("Error parsing input: ").append(e.what()), -EINVAL);
+}
+
+auto cma_parser_decode_get_total_supply(const cmt_rollup_inspect_t &input, cma_parser_input_t &parser_input)
+    -> void try {
+    std::span payload_span(static_cast<uint8_t *>(input.payload.data), input.payload.length);
+    std::string json_str(payload_span.begin(), payload_span.end());
+
+    auto json_input = nlohmann::json::parse(json_str);
+
+    if (!json_input.contains("method")) {
+        throw CmaException("Missing method key", -EINVAL);
+    }
+    if (json_input.at("method").get<std::string>() != GET_TOTAL_SUPPLY) {
+        throw CmaException("Invalid method", -EINVAL);
+    }
+
+    cma_parser_decode_get_total_supply_json(json_input, parser_input);
+} catch (nlohmann::json::parse_error &e) {
+    throw CmaException(std::string("Error parsing input: ").append(e.what()), -EINVAL);
+}
 
 /*
  * Encode voucher functions

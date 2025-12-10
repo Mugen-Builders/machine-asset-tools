@@ -322,10 +322,10 @@ void cma_ledger::retrieve_create_account(cma_ledger_account_id_t *account_id, cm
             cma_ledger_account_t account_local;
             if (addr_accid != nullptr) {
                 if (account_type == CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS) {
-                    std::ignore = std::copy_n((static_cast<const cma_token_address_t *>(addr_accid))->data,
+                    std::ignore = std::copy_n((static_cast<const cma_abi_address_t *>(addr_accid))->data,
                         CMA_ABI_ADDRESS_LENGTH, static_cast<uint8_t *>(account_local.address.data));
                 } else if (account_type == CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID) {
-                    std::ignore = std::copy_n((static_cast<const cma_token_id_t *>(addr_accid))->data,
+                    std::ignore = std::copy_n((static_cast<const cma_account_id_t *>(addr_accid))->data,
                         CMA_ABI_ID_LENGTH, static_cast<uint8_t *>(account_local.account_id.data));
                 }
             } else {
