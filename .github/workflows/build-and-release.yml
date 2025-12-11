@@ -48,18 +48,25 @@ jobs:
         run: |
           mkdir -p build/artifacts
           make docker DOCKERFILE=alpine.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install
+          tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz *
+          cd ../..
           make install DESTDIR=build/_install PREFIX=/usr
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install
+          tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz *
+          cd ../..
           make clean
 
       - name: Build Ubuntu
         run: |
           mkdir -p build/artifacts
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install
+          tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz *
+          cd ../..
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="install DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_installtar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz *
+          cd ../..
           make control VERSION=${{ env.VERSION }}
           mkdir build/_install/DEBIAN
           mv control build/_install/DEBIAN/
