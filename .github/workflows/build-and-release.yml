@@ -65,13 +65,12 @@ jobs:
           mv control build/_install/DEBIAN/
           dpkg-deb -Zxz --root-owner-group --build build/_install build/artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
 
-      - name: Create artifact archive
+      - name: Create sha256sum files
         run: |
-          cd build/artifacts
-          sha256sum ${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum ${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum ${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum ${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
