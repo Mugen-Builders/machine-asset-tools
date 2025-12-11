@@ -46,37 +46,37 @@ jobs:
 
       - name: Build Alpine
         run: |
-          mkdir -p build/artifacts
+          mkdir -p artifacts
           make docker DOCKERFILE=alpine.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
           make install DESTDIR=build/_install PREFIX=/usr
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
           make clean
 
       - name: Build Ubuntu
         run: |
-          mkdir -p build/artifacts
+          mkdir -p artifacts
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="install DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
+          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
           make control VERSION=${{ env.VERSION }}
           mkdir build/_install/DEBIAN
           mv control build/_install/DEBIAN/
-          dpkg-deb -Zxz --root-owner-group --build build/_install build/artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
+          dpkg-deb -Zxz --root-owner-group --build build/_install artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
 
       - name: Create sha256sum files
         run: |
-          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > build/artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          files: build/artifacts/*
+          files: artifacts/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
