@@ -1,0 +1,74 @@
+name: build-and-release
+run-name: Testing and Releasing libcma
+on: [push, workflow_dispatch]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    environment: Main
+
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Ubuntu
+        run: |
+          make docker ARGS="test"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Set Envs
+        run: |
+          echo "VERSION=${GITHUB_REF##*/v}" >> "$GITHUB_ENV"
+          echo "TOOLS_TARGZ= ${{ vars.TOOLS_TARGZ || "machine-asset-tools" }}" >> "$GITHUB_ENV"
+
+      - name: Build Alpine
+        run: |
+          make docker DOCKERFILE=alpine.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
+          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz * && cd -
+          make docker DOCKERFILE=alpine.dockerfile ARGS="install DESTDIR=build/_install PREFIX=/usr"
+          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd -
+          make clean
+
+      - name: Build Ubuntu
+        run: |
+          mkdir -p build/artifacts
+          make docker DOCKERFILE=ubuntu.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
+          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz * && cd -
+          make docker DOCKERFILE=ubuntu.dockerfile ARGS="install DESTDIR=build/_install PREFIX=/usr"
+          cd build/_install && tar -czf ../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd -
+          make control VERSION=${{ env.VERSION }}
+          mkdir build/_install/DEBIAN
+          mv control build/_install/DEBIAN/
+          dpkg-deb -Zxz --root-owner-group --build build/_install build/artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
+
+      - name: Create artifact archive
+        run: |
+          cd build/artifacts
+          sha256sum ${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum ${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum ${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum ${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > ${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: build/artifacts/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

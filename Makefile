@@ -1,4 +1,10 @@
 
+MAJOR := 0
+MINOR := 1
+PATCH := 0
+LABEL :=
+VERSION ?= $(MAJOR).$(MINOR).$(PATCH)$(LABEL)
+
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
@@ -31,16 +37,18 @@ LIBCMA_CFLAGS += -Wstrict-aliasing=3 -fPIC
 # Current architecture
 ARCH := $(shell uname -m)
 
-BUILDER_IMAGE = libcma-builder
+DOCKERFILE ?= ubuntu.dockerfile
+BUILDER_IMAGE ?= libcma-builder
+SH ?= 'bash'
 
 ifneq ($(ARCH),riscv64)
 all: docker
 docker-image:
-	@docker build --quiet --platform linux/riscv64 -f Dockerfile -t $(BUILDER_IMAGE) --target builder .
+	@docker build --quiet --platform linux/riscv64 -f $(DOCKERFILE) -t $(BUILDER_IMAGE) --target builder .
 docker: docker-image
 	@docker run --platform linux/riscv64 --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) make $(ARGS)
 docker-shell: docker-image
-	@docker run --platform linux/riscv64 -it --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) sh
+	@docker run --platform linux/riscv64 -it --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) $(SH) $(ARGS)
 else
 all: libcma
 endif
@@ -60,7 +68,7 @@ libcma_LIB       := $(libcma_OBJDIR)/libcma.a
 libcma_SO        := $(libcma_OBJDIR)/libcma.so
 
 $(libcma_OBJ): $(libcma_OBJDIR)/%.o: %.cpp
-	@mkdir -p $(@D)
+	mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(libcma_LIB): $(libcma_OBJ)
@@ -70,6 +78,30 @@ $(libcma_SO): $(libcma_OBJ)
 	$(CXX) -shared -o $@ $^
 
 libcma: $(libcma_LIB) $(libcma_SO)
+
+#-------------------------------------------------------------------------------
+
+PREFIX ?= /usr
+DESTDIR ?= .
+
+install-run: $(libcma_SO)
+	@mkdir -p $(DESTDIR)$(PREFIX)/lib
+	@cp -f $(libcma_SO) $(DESTDIR)$(PREFIX)/lib
+
+install-dev: $(libcma_LIB) build/ffi.h
+	@mkdir -p $(DESTDIR)$(PREFIX)/lib
+	@cp -f $(libcma_LIB) $(DESTDIR)$(PREFIX)/lib
+	@mkdir -p $(DESTDIR)$(PREFIX)/include/libcma/
+	@cp -f include/libcma/*.h $(DESTDIR)$(PREFIX)/include/libcma/
+	@cp -f build/ffi.h $(DESTDIR)$(PREFIX)/include/libcma/
+	@mkdir -p $(DESTDIR)$(PREFIX)/lib/pkgconfig
+	@sed -e 's|@PREFIX@|$(PREFIX)|g' -e 's|@ARG_VERSION@|$(VERSION)|g'\
+	    tools/libcma.pc.in > $(DESTDIR)$(PREFIX)/lib/pkgconfig/libcma.pc
+
+install: install-run install-dev
+
+control: tools/control.in
+	@sed 's|ARG_VERSION|$(VERSION)|g' tools/control.in > control
 
 #-------------------------------------------------------------------------------
 
@@ -116,11 +148,18 @@ sample-%: $(sample_OBJDIR)/%/%
 HDRS := $(patsubst %,include/libcma/%, types.h ledger.h parser.h)
 build/ffi.h: $(HDRS)
 	cat $^ | sed \
+		-e 's/\/\*.*\*\///g' \
 		-e '/\/\*/,/\*\//d' \
 		-e '/#if\s/,/#endif/d' \
 		-e '/#define/d' \
 		-e '/#endif/d' \
 		-e '/#ifndef/d' \
+		-e '/#ifdef/d' \
+		-e '/extern/d' \
+		-e '/#pragma/d' \
+		-e 's/__attribute__((__packed__))//g' \
+		-e 's/CMA_LEDGER_API //g' \
+		-e 's/CMA_PARSER_API //g' \
 		-e '/#include/d' > $@
 
 #-------------------------------------------------------------------------------
@@ -143,18 +182,18 @@ SPACE:=$(EMPTY) $(EMPTY)
 CLANG_TIDY_HEADER_FILTER=$(CURDIR)/($(subst $(SPACE),|,$(LINTER_HEADERS)))
 
 %.clang-tidy: %.cpp
-	@$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CXXFLAGS) 2>/dev/null
-	@$(CXX) $(CXXFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
-	@touch $@
+	$(CLANG_TIDY) --header-filter='$(CLANG_TIDY_HEADER_FILTER)' $< -- $(CXXFLAGS) 2>/dev/null
+	$(CXX) $(CXXFLAGS) $< -MM -MT $@ -MF $@.d > /dev/null 2>&1
+	touch $@
 
 clangd-config:
-	@echo "$(CXXFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
+	echo "$(CXXFLAGS)" | sed -e $$'s/ \{1,\}/\\\n/g' | grep -v "MMD" > compile_flags.txt
 
 format:
-	@$(CLANG_FORMAT) -i $(CLANG_FORMAT_FILES)
+	$(CLANG_FORMAT) -i $(CLANG_FORMAT_FILES)
 
 check-format:
-	@$(CLANG_FORMAT) -Werror --dry-run $(CLANG_FORMAT_FILES)
+	$(CLANG_FORMAT) -Werror --dry-run $(CLANG_FORMAT_FILES)
 
 lint: $(CLANG_TIDY_TARGETS)
 
@@ -166,6 +205,8 @@ help:
 	@echo "  libcma       - Build the library; to run on the cartesi-machine."
 	@echo "                 (requires the cartesi Linux headers to build)"
 	@echo "  test         - Build and run tests on top of the target library on the riscv system."
+	@echo "  install      - Install the library and C headers; on the host system."
+	@echo "                 Use DESTDIR and PREFIX to customize the installation."
 	@echo "  clean        - remove the binaries and objects."
 	@echo "  docker-image - create docker image to build, run, and test library."
 	@echo "  docker       - run make in the docker image (set ARGS for additional options)."
