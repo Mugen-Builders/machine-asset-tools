@@ -34,7 +34,7 @@ jobs:
       - name: Set Envs
         run: |
           echo "VERSION=${GITHUB_REF##*/v}" >> "$GITHUB_ENV"
-          echo "TOOLS_TARGZ= ${{ vars.TOOLS_TARGZ || 'machine-asset-tools' }}" >> "$GITHUB_ENV"
+          echo "TOOLS_TARGZ=${{ vars.TOOLS_TARGZ || 'machine-asset-tools' }}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
 
