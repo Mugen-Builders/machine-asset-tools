@@ -36,6 +36,14 @@ jobs:
           echo "VERSION=${GITHUB_REF##*/v}" >> "$GITHUB_ENV"
           echo "TOOLS_TARGZ= ${{ vars.TOOLS_TARGZ || 'machine-asset-tools' }}" >> "$GITHUB_ENV"
 
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Alpine
         run: |
           make docker DOCKERFILE=alpine.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
