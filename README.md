@@ -28,7 +28,7 @@ the library is divided into two parts: parser and ledger. The former helps to pa
 
 ### Parser
 
-The parser helps to parse the input data, which is in the form of an abi encoded byte string for advances a JSON-rpc-like string for inspects. The parser contains 3 main functions to decode the input and store the parsed data in a struct.
+The parser helps to parse the input data, which is in the form of an abi encoded byte string for advances a JSON-rpc-like string for inspects. The parser contains functions to decode the input and store the parsed data in a struct, and encode a voucher based pn a voucher request struct.
 
 Ex. decode a Erc20 deposit:
 
@@ -38,7 +38,7 @@ cma_parser_input_t parser_input;
 
 const int err = cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT, &input, &parser_input);
 if (err < 0) {
-  printf("unable to decode ether deposit: %d - %s\n", -err, cma_parser_get_last_error_message());
+  printf("unable to decode erc20 deposit: %d - %s\n", -err, cma_parser_get_last_error_message());
 }
 
 parser_input.erc20_deposit.sender; // sender of the deposit
@@ -49,7 +49,7 @@ parser_input.erc20_deposit.exec_layer_data; // exec layer data included on the d
 
 Note: if the input is not a deposit, the parser can decode the input automatically by the functions selector of the payload. Use the the `CMA_PARSER_INPUT_TYPE_AUTO` type.
 
-We invite you to explore the [parser's](/include/libcma/parser.h) function definitions and structs, the [sample applications](/sample_apps), and the [tests](/tests/parser.c).
+Explore the [parser's](/include/libcma/parser.h) to learn the function definitions and structs, the [sample applications](/sample_apps), and the [tests](/tests/parser.c) to see it in use.
 
 ### Ledger
 
@@ -65,7 +65,7 @@ if (!cma_ledger_init(&ledger)) {
 
 // find/create account with ether address
 cma_ledger_account_t account = {.address = {.data = {
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+  0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79, 0xcf, 0xff, 0xb9, 0x22, 0x66,
 }}};
 cma_ledger_account_id_t account_id;
 if (!cma_ledger_retrieve_account(&ledger, &account_id, &account, NULL, CMA_LEDGER_ACCOUNT_TYPE_ETHER_ADDRESS, CMA_LEDGER_OP_FIND_OR_CREATE)) {
@@ -74,7 +74,7 @@ if (!cma_ledger_retrieve_account(&ledger, &account_id, &account, NULL, CMA_LEDGE
 
 // find/create asset with token address
 cma_token_address_t token_address = {.address = {.data = {
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
+  0x49, 0x16, 0x04, 0xc0, 0xfd, 0xf0, 0x83, 0x47, 0xdd, 0x1f, 0xa4, 0xee, 0x06, 0x2a, 0x82, 0x2a, 0x5d, 0xd0, 0x6b, 0x5d,
 }}};
 cma_ledger_asset_id_t asset_id;
 if (!cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address, NULL, CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS, CMA_LEDGER_OP_FIND_OR_CREATE)) {
@@ -83,7 +83,7 @@ if (!cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address, NULL, CMA_LED
 
 // amount
 cma_amount_t amount = {.data = {
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x04,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0d, 0xe0, 0xb6, 0xb3, 0xa7, 0x64, 0x00, 0x00,
 }};
 
 // deposit
@@ -98,11 +98,11 @@ if (!cma_ledger_fini(&ledger)) {
 
 The ledger uses an internal uint32 for the identification of the account and the assets. If enabled, every time you try to retrieve an asset or account that is not on the storage it creates a new one.
 
-You can create an account without any account id, so it will never be mapped to any external identifier. You can also create an account with a an ether address or a 32-byte string, so it will be mapped to an external identifier. Note that only accounts defined by ether addresses should be able to withdraw assets from the application.
+You can create an account without any account id, so it will never be mapped to any external identifier. You can also create an account with a an ether address, so it will be mapped to an external identifier, or a 32-byte string. Note that only accounts defined by ether addresses should be able to withdraw assets from the application.
 
-The asset model defines a single model for all kinds of assets: it either has token address, token address and token id, or no token address and token id, and it always may have any amount. In that sense, the differences between Ether, Erc20, Erc721, and Erc1155 are implemented on how you define the asset.
+The asset model defines a single model for all kinds of assets: it either has token address, token address and token id, or no token address and token id. Furthermore, the asset always may have any amount. In that sense, the differences between Ether, Erc20, Erc721, and Erc1155 are implemented on how you define the asset.
 
-We invite you to explore the [ledger's](/include/libcma/ledger.h) function definitions and structs, the [sample application](/sample_apps/wallet_app/app.cpp), and the [tests](/tests/ledger.c).
+Explore the [ledger's](/include/libcma/ledger.h) to learn the function definitions and structs, the [sample application](/sample_apps/wallet_app/app.cpp), and the [tests](/tests/ledger.c) to see it in use.
 
 ## Reference
 
@@ -143,7 +143,7 @@ ERC1155_SINGLE_TRANSFER_FUNCTION_SELECTOR_FUNSEL = 0xf242432a,
 ERC1155_BATCH_TRANSFER_FUNCTION_SELECTOR_FUNSEL = 0x2eb2c2d6,
 ```
 
-Note on transfer function: the receiver parameter from the transfer functions is a 32 bytes account id. This
+Note on transfer function: the receiver parameter from the transfer functions is a 32 bytes account id. This allows transfers for the "internal" accounts. Ether addresses should be converted to 32-byte strings when used in transfers.
 
 Inspect methods:
 
@@ -154,20 +154,23 @@ GET_TOTAL_SUPPLY = "ledger_getTotalSupply"
 
 Full inspect example:
 
-```json
+```javascript
 {
   "method":"ledger_getBalance",
   "params":[
-    "0x0000000000000000000000000000000000000001", // account: 20-byte wallet address or 32-byte account id
+    "0x0000000000000000000000000000000000000001", // required: 20-byte wallet address or 32-byte account id
     "0x00000000000000000000000000000000000000ff", // optional: 20-byte token address
-    "0x11" // optional: 32-byte or relevant bytes token id
+    "0x11", // optional: 32-byte or relevant bytes token id
+    "abc" // optional: exec layer data
   ]
 }
+
 {
   "method":"ledger_getTotalSupply",
   "params":[
     "0x00000000000000000000000000000000000000ff", // optional: 20-byte token address
-    "0x11" // optional: 32-byte or relevant bytes token id
+    "0x11", // optional: 32-byte or relevant bytes token id
+    "abc" // optional: exec layer data
   ]
 }
 ```
