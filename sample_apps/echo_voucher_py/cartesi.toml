@@ -1,0 +1,17 @@
+[machine]
+ram_length = "64Mi"
+entrypoint = "/usr/local/bin/python /mnt/app/app.py"
+
+[drives.root]
+builder = "docker"
+dockerfile = "Dockerfile"
+target = "app"
+format = "ext2"
+avoid_overwrite = "true"
+extra_size = "2Mb"
+buildx = true
+
+[drives.app]
+builder = "directory"
+directory = "app"
+format = "sqfs"

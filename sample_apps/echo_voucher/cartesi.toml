@@ -1,6 +1,8 @@
 [machine]
 ram_length = "32Mi"
-entrypoint = "/mnt/app/echo_voucher"
+entrypoint = "/mnt/app/app"
+use_docker_env = false # cartesi cli option to avoid using docker rootfs envs
+workdir = "/"
 
 [drives.root]
 builder = "docker"
@@ -12,6 +14,8 @@ extra_size = "2Mb"
 buildx = true
 
 [drives.app]
-builder = "directory"
-directory = "build/samples/echo_voucher"
+builder = "docker"
+dockerfile = "Dockerfile"
+target = "app"
 format = "sqfs"
+buildx = true

@@ -2,3 +2,8 @@ build
 compile_flags.txt
 */*.clang-tidy*
 *.bin
+.*
+!.gitignore
+!.github
+!.clang-format
+!.clang-tidy

@@ -130,21 +130,6 @@ test-%: $(test_OBJDIR)/%
 
 #-------------------------------------------------------------------------------
 
-sample_OBJDIR := build/samples
-sample_BINS := \
-	$(sample_OBJDIR)/echo_voucher/echo_voucher \
-	$(sample_OBJDIR)/wallet_app/wallet_app
-
-$(sample_OBJDIR)/%: sample_apps/%.cpp $(libcma_LIB)
-	mkdir -p $(shell dirname $@)
-	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) -o $@ $< -L$(libcma_OBJDIR) -lcma -lcmt
-
-samples: $(sample_BINS)
-
-sample-%: $(sample_OBJDIR)/%/%
-
-#-------------------------------------------------------------------------------
-
 HDRS := $(patsubst %,include/libcma/%, types.h ledger.h parser.h)
 build/ffi.h: $(HDRS)
 	cat $^ | sed \
@@ -221,4 +206,5 @@ distclean: clean
 
 OBJ := $(libcma_OBJ)
 
+.PHONY: install install-run install-dev
 -include $(OBJ:%.o=%.d)
