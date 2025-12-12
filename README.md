@@ -9,7 +9,7 @@ The API is divided into two main components
 
 ## Installation
 
-To install, download the latest release from the [GitHub releases page](https://github.com/cartesi/cartesi-machine-assets/releases). It contains libraries and headers files (runtime and development environments) for musl and glibc systems.
+To install, download the latest release from the [GitHub releases page](https://github.com/Mugen-Builders/machine-asset-tools/releases). It contains libraries and headers files (runtime and development environments) for musl and glibc systems.
 
 If you are creating a Cartesi Rollups Application using Docker, you can add following command to your Dockerfile:
 
@@ -49,7 +49,7 @@ parser_input.erc20_deposit.exec_layer_data; // exec layer data included on the d
 
 Note: if the input is not a deposit, the parser can decode the input automatically by the functions selector of the payload. Use the the `CMA_PARSER_INPUT_TYPE_AUTO` type.
 
-We invite you to explore the [parser's](/blob/main/include/libcma/parser.h) function definitions and structs, the [sample applications](/blob/main/sample_apps), and the [tests](/blob/main/tests/parser.c).
+We invite you to explore the [parser's](/include/libcma/parser.h) function definitions and structs, the [sample applications](/sample_apps), and the [tests](/tests/parser.c).
 
 ### Ledger
 
@@ -102,7 +102,7 @@ You can create an account without any account id, so it will never be mapped to 
 
 The asset model defines a single model for all kinds of assets: it either has token address, token address and token id, or no token address and token id, and it always may have any amount. In that sense, the differences between Ether, Erc20, Erc721, and Erc1155 are implemented on how you define the asset.
 
-We invite you to explore the [ledger's](/blob/main/include/libcma/ledger.h) function definitions and structs, the [sample application](/blob/main/sample_apps/wallet_app/app.cpp), and the [tests](/blob/main/tests/ledger.c).
+We invite you to explore the [ledger's](/include/libcma/ledger.h) function definitions and structs, the [sample application](/sample_apps/wallet_app/app.cpp), and the [tests](/tests/ledger.c).
 
 ## Reference
 
