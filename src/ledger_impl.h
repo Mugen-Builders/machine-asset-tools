@@ -71,14 +71,14 @@ public:
 
     auto get_asset_count() -> size_t;
     void retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
-        cma_token_id_t *token_id, cma_ledger_asset_type_t asset_type, cma_ledger_retrieve_operation_t operation);
-    auto find_asset(cma_ledger_asset_id_t asset_id, cma_token_address_t *token_address, cma_token_id_t *token_id,
-        cma_amount_t *supply) -> bool;
+        cma_token_id_t *token_id, cma_ledger_asset_type_t &asset_type, cma_ledger_retrieve_operation_t operation);
+    auto find_asset(cma_ledger_asset_id_t asset_id, cma_ledger_asset_type_t *asset_type,
+        cma_token_address_t *token_address, cma_token_id_t *token_id, cma_amount_t *supply) -> bool;
 
     auto get_account_count() -> size_t;
     auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account) -> bool;
     void retrieve_create_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account,
-        const void *addr_accid, cma_ledger_account_type_t account_type, cma_ledger_retrieve_operation_t operation);
+        const void *addr_accid, cma_ledger_account_type_t &account_type, cma_ledger_retrieve_operation_t operation);
 
     void set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &supply);
     void get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t to_account_id,

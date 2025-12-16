@@ -9,7 +9,7 @@ CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
 
-INCLUDE_FLAGS = -Iinclude -I/tmp
+INCLUDE_FLAGS = -Iinclude
 
 CFLAGS += -Wvla -O2 -g -Wall -Wextra \
        		-fno-strict-aliasing -fno-strict-overflow \
@@ -48,7 +48,7 @@ docker-image:
 docker: docker-image
 	@docker run --platform linux/riscv64 --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) make $(ARGS)
 docker-shell: docker-image
-	@docker run --platform linux/riscv64 -it --rm -v $(PWD):/app -w /app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) $(SH) $(ARGS)
+	@docker run --platform linux/riscv64 -it --rm -v $(PWD):/mnt/app -w /mnt/app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) $(SH) $(ARGS)
 else
 all: libcma
 endif
@@ -127,6 +127,12 @@ test: $(unittests_BINS)
 
 test-%: $(test_OBJDIR)/%
 	./$<
+
+#-------------------------------------------------------------------------------
+SAMPLE=wallet_app
+
+sample: $(libcma_LIB)
+	$(MAKE) -C sample_apps/$(SAMPLE) EXTRA_FLAGS="-I$(PWD)/include -L$(PWD)/$(libcma_OBJDIR)"
 
 #-------------------------------------------------------------------------------
 

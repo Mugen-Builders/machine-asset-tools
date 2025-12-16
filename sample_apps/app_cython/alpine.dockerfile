@@ -4,6 +4,8 @@ ARG IMAGE_TAG=3.12.10-alpine3.21
 ARG MACHINE_GUEST_TOOLS_VERSION=0.17.1-r1
 ARG CFFI_VERSION=2.0.0
 ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.2
+ARG SETUPTOOLS_VERSION=80.9.0
+ARG CYTHON_VERSION=3.2.2
 
 FROM ${IMAGE_NAME}:${IMAGE_TAG} AS base
 
@@ -21,35 +23,37 @@ ADD https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${M
 RUN tar -xzf /tmp/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz -C / && \
     rm /tmp/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 
-ARG CFFI_VERSION
-RUN pip install cffi==${CFFI_VERSION}
-
-WORKDIR /opt/build/app
-
 FROM base AS builder
 
-RUN pip install setuptools==80.9.0
+ARG SETUPTOOLS_VERSION
+ARG CYTHON_VERSION
+RUN pip install setuptools==${SETUPTOOLS_VERSION} cython==${CYTHON_VERSION}
 
 ARG MACHINE_GUEST_TOOLS_VERSION
 RUN apk update && \
     apk add cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
-
-# use fixed libcmt ffi.h
-COPY include/libcmt_ffi.h /usr/include/libcmt/ffi.h
 
 ARG MACHINE_ASSET_TOOLS_VERSION
 ADD https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz /tmp/
 RUN tar -xzf /tmp/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz -C / && \
     rm /tmp/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 
-COPY tools/compile_libs.py compile_libs.py
-RUN python compile_libs.py
+# use fixed libcmt rollup.h
+COPY include/rollup.h /usr/include/libcmt/.
+
+USER dapp
+
+COPY cmpy /opt/build/app/cmpy
+
+WORKDIR /opt/build/app/cmpy
+
+RUN python setup.py build_ext -i
 
 FROM base AS app
 
 WORKDIR /opt/cartesi/app
 
-COPY --from=builder /opt/build/app/pycm.cpython-312-riscv64-linux-musl.so /usr/local/lib/python3.12/site-packages/pycm.cpython-312-riscv64-linux-musl.so
+COPY --from=builder /opt/build/app/cmpy/*.so /usr/local/lib/python3.12/site-packages/.
 
 RUN <<EOF
 set -e

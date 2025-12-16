@@ -7,11 +7,14 @@ WARN_CXXFLAGS = -Wall -Wextra -Wpedantic -Wformat \
 
 OPT_CXXFLAGS = -O2
 
+EXTRA_FLAGS =
+
 CXXFLAGS += \
 	-std=c++20 \
 	$(INCLUDE_FLAGS) \
 	$(WARN_CXXFLAGS) \
-	$(OPT_CXXFLAGS)
+	$(OPT_CXXFLAGS) \
+	$(EXTRA_FLAGS)
 
 # C++ flags to improve safety
 HARDEN_CXXFLAGS = \

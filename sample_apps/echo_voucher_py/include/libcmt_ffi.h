@@ -1,7 +1,7 @@
 
 typedef struct {
-    uint8_t *begin; 
-    uint8_t *end;   
+    uint8_t *begin;
+    uint8_t *end;
 } cmt_buf_t;
 
 void cmt_buf_init(cmt_buf_t *me, size_t length, void *data);
@@ -17,8 +17,8 @@ bool cmt_buf_split_by_comma(cmt_buf_t *x, cmt_buf_t *xs);
 
 
 enum {
-    CMT_ABI_U256_LENGTH = 32,    
-    CMT_ABI_ADDRESS_LENGTH = 20, 
+    CMT_ABI_U256_LENGTH = 32,
+    CMT_ABI_ADDRESS_LENGTH = 20,
 };
 
 
@@ -101,7 +101,7 @@ int cmt_abi_decode_uint_nn(const uint8_t data[CMT_ABI_U256_LENGTH], size_t n, ui
 
 
 enum {
-    CMT_KECCAK_LENGTH = 32, 
+    CMT_KECCAK_LENGTH = 32,
 };
 
 
@@ -127,12 +127,12 @@ uint32_t cmt_keccak_funsel(const char *decl);
 
 
 enum {
-    CMT_MERKLE_TREE_HEIGHT = 63, 
+    CMT_MERKLE_TREE_HEIGHT = 63,
 };
 
 typedef struct {
-    uint64_t leaf_count;                                      
-    uint8_t state[CMT_MERKLE_TREE_HEIGHT][CMT_KECCAK_LENGTH]; 
+    uint64_t leaf_count;
+    uint8_t state[CMT_MERKLE_TREE_HEIGHT][CMT_KECCAK_LENGTH];
 } cmt_merkle_t;
 
 void cmt_merkle_init(cmt_merkle_t *me);
@@ -156,33 +156,33 @@ void cmt_merkle_get_root_hash(cmt_merkle_t *me, uint8_t root[CMT_KECCAK_LENGTH])
 
 
 enum {
-    HTIF_DEVICE_YIELD = 2, 
+    HTIF_DEVICE_YIELD = 2,
 };
 
 
 enum {
-    HTIF_YIELD_CMD_AUTOMATIC = 0, 
-    HTIF_YIELD_CMD_MANUAL = 1,    
+    HTIF_YIELD_CMD_AUTOMATIC = 0,
+    HTIF_YIELD_CMD_MANUAL = 1,
 };
 
 
 enum {
-    HTIF_YIELD_AUTOMATIC_REASON_PROGRESS = 1,  
-    HTIF_YIELD_AUTOMATIC_REASON_TX_OUTPUT = 2, 
-    HTIF_YIELD_AUTOMATIC_REASON_TX_REPORT = 4, 
+    HTIF_YIELD_AUTOMATIC_REASON_PROGRESS = 1,
+    HTIF_YIELD_AUTOMATIC_REASON_TX_OUTPUT = 2,
+    HTIF_YIELD_AUTOMATIC_REASON_TX_REPORT = 4,
 };
 
 
 enum {
-    HTIF_YIELD_MANUAL_REASON_RX_ACCEPTED = 1,  
-    HTIF_YIELD_MANUAL_REASON_RX_REJECTED = 2,  
-    HTIF_YIELD_MANUAL_REASON_TX_EXCEPTION = 4, 
+    HTIF_YIELD_MANUAL_REASON_RX_ACCEPTED = 1,
+    HTIF_YIELD_MANUAL_REASON_RX_REJECTED = 2,
+    HTIF_YIELD_MANUAL_REASON_TX_EXCEPTION = 4,
 };
 
 
 enum {
-    HTIF_YIELD_REASON_ADVANCE = 0, 
-    HTIF_YIELD_REASON_INSPECT = 1, 
+    HTIF_YIELD_REASON_ADVANCE = 0,
+    HTIF_YIELD_REASON_INSPECT = 1,
 };
 
 typedef struct {
@@ -240,23 +240,23 @@ typedef struct cmt_rollup {
 
 
 typedef struct cmt_rollup_advance {
-    uint64_t chain_id;                        
-    cmt_abi_address_t app_contract;           
-    cmt_abi_address_t msg_sender;             
-    uint64_t block_number;                    
-    uint64_t block_timestamp;                 
-    cmt_abi_u256_t prev_randao;               
-    uint64_t index;                           
-    cmt_abi_bytes_t payload;                  
+    uint64_t chain_id;
+    cmt_abi_address_t app_contract;
+    cmt_abi_address_t msg_sender;
+    uint64_t block_number;
+    uint64_t block_timestamp;
+    cmt_abi_u256_t prev_randao;
+    uint64_t index;
+    cmt_abi_bytes_t payload;
 } cmt_rollup_advance_t;
 
 
 typedef struct cmt_rollup_inspect {
-    cmt_abi_bytes_t payload; 
+    cmt_abi_bytes_t payload;
 } cmt_rollup_inspect_t;
 
 
-typedef struct cmt_rollup_finish {
+typedef struct cmt_rollup_finish_s {
     bool accept_previous_request;
     int next_request_type;
     uint32_t next_request_payload_length;
@@ -264,12 +264,12 @@ typedef struct cmt_rollup_finish {
 
 
 typedef struct cmt_gio {
-    uint16_t domain;               
-    uint32_t id_length;            
-    void *id;                      
-    uint16_t response_code;        
-    uint32_t response_data_length; 
-    void *response_data;           
+    uint16_t domain;
+    uint32_t id_length;
+    void *id;
+    uint16_t response_code;
+    uint32_t response_data_length;
+    void *response_data;
 } cmt_gio_t;
 
 int cmt_rollup_init(cmt_rollup_t *me);
@@ -301,4 +301,3 @@ int cmt_rollup_load_merkle(cmt_rollup_t *me, const char *path);
 int cmt_rollup_save_merkle(cmt_rollup_t *me, const char *path);
 
 void cmt_rollup_reset_merkle(cmt_rollup_t *me);
-

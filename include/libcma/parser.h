@@ -172,13 +172,13 @@ typedef struct cma_parser_erc1155_batch_transfer {
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_batch_transfer_t;
 
-typedef struct cma_parser_balance_t {
+typedef struct cma_parser_balance {
     cma_account_id_t account;
     cma_token_address_t token;
     cma_token_id_t token_id;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_balance_t;
-typedef struct cma_parser_supply_t {
+typedef struct cma_parser_supply {
     cma_token_address_t token;
     cma_token_id_t token_id;
     cma_abi_bytes_t exec_layer_data;

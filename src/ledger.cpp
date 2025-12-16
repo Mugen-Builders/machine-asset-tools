@@ -91,33 +91,40 @@ auto cma_ledger_reset(cma_ledger_t *ledger) -> int try {
 }
 
 auto cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asset_id,
-    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_ledger_asset_type_t asset_type,
+    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_ledger_asset_type_t *asset_type,
     cma_ledger_retrieve_operation_t operation) -> int try {
     if (ledger == nullptr) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
+    }
+    if (asset_type == nullptr) {
+        throw CmaException("Invalid asset type ptr", -EINVAL);
     }
     auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
-    ledger_ptr->retrieve_create_asset(asset_id, token_address, token_id, asset_type, operation);
+    ledger_ptr->retrieve_create_asset(asset_id, token_address, token_id, *asset_type, operation);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
 }
 
 auto cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *account_id,
-    cma_ledger_account_t *account, const void *addr_accid, cma_ledger_account_type_t account_type,
+    cma_ledger_account_t *account, const void *addr_accid, cma_ledger_account_type_t *account_type,
     cma_ledger_retrieve_operation_t operation) -> int try {
     if (ledger == nullptr) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
+    if (account_type == nullptr) {
+        throw CmaException("Invalid account type ptr", -EINVAL);
+    }
+
     auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
 
-    ledger_ptr->retrieve_create_account(account_id, account, addr_accid, account_type, operation);
+    ledger_ptr->retrieve_create_account(account_id, account, addr_accid, *account_type, operation);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -135,7 +142,7 @@ auto cma_ledger_get_total_supply(cma_ledger_t *ledger, cma_ledger_asset_id_t ass
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
-    if (!ledger_ptr->find_asset(asset_id, nullptr, nullptr, out_total_supply)) {
+    if (!ledger_ptr->find_asset(asset_id, nullptr, nullptr, nullptr, out_total_supply)) {
         throw CmaException("Asset not found", CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
     }
 

@@ -158,9 +158,9 @@ Full inspect example:
 {
   "method":"ledger_getBalance",
   "params":[
-    "0x0000000000000000000000000000000000000001", // required: 20-byte wallet address or 32-byte account id
-    "0x00000000000000000000000000000000000000ff", // optional: 20-byte token address
-    "0x11", // optional: 32-byte or relevant bytes token id
+    "0xcb76129e0ed325e1e5c17f3f363bc2e93a227ecf", // required: 20-byte wallet address or 32-byte account id
+    "0xc700000000000000000000000000000000000051", // optional: 20-byte token address
+    "0x0711", // optional: 32-byte or relevant bytes token id
     "abc" // optional: exec layer data
   ]
 }
@@ -168,8 +168,8 @@ Full inspect example:
 {
   "method":"ledger_getTotalSupply",
   "params":[
-    "0x00000000000000000000000000000000000000ff", // optional: 20-byte token address
-    "0x11", // optional: 32-byte or relevant bytes token id
+    "0xc700000000000000000000000000000000000051", // optional: 20-byte token address
+    "0x0711", // optional: 32-byte or relevant bytes token id
     "abc" // optional: exec layer data
   ]
 }

@@ -77,10 +77,10 @@ def handle_advance():
         # decode deposit
         parser_input = ffi.new("cma_parser_input_t *")
         err = lib.cma_parser_decode_advance(
-            lib.CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, input, parser_input)
+            lib.CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT, input, parser_input)
         if err != 0:
             logger.error(f"[app] unable to decode erc20 deposit: {err} {lib.cma_parser_get_last_error_message()}")
-            return True # False
+            return False
 
         # encode voucher
         voucher_req = ffi.new("cma_parser_voucher_data_t *")
@@ -88,27 +88,31 @@ def handle_advance():
         voucher_req.erc20.token.data = parser_input.erc20_deposit.token.data
         voucher_req.erc20.amount.data = parser_input.erc20_deposit.amount.data
 
+        voucher_payload_buf = ffi.new("uint8_t[CMA_PARSER_ERC20_VOUCHER_PAYLOAD_SIZE]")
         voucher = ffi.new("cma_voucher_t *")
+        voucher.payload.data = voucher_payload_buf
+        voucher.payload.length = len(voucher_payload_buf)
         addr = ffi.new("cma_abi_address_t *")
+        addr.data = input.app_contract.data
 
         err = lib.cma_parser_encode_voucher(lib.CMA_PARSER_VOUCHER_TYPE_ERC20, addr, voucher_req, voucher)
         if err != 0:
             logger.error(f"[app] unable to encode erc20 voucher: {err} {lib.cma_parser_get_last_error_message()}")
-            return True # False
+            return False
 
         # send voucher
         index   = ffi.new("uint64_t *")
         err = lib.cmt_rollup_emit_voucher(rollup,ffi.addressof(voucher,'address'),ffi.addressof(voucher,'value'),ffi.addressof(voucher,'payload'),index)
         if err != 0:
             logger.error(f"[app] unable to emit erc20 voucher: {err} {lib.cma_parser_get_last_error_message()}")
-            return True # False
+            return False
 
         logger.info(f"[app] emitted erc20 voucher: {index[0]=}")
 
         return True
 
     logger.error("[app] invalid input")
-    return True # False
+    return True
 
 
 def handle_inspect():
@@ -118,12 +122,12 @@ def handle_inspect():
     err = lib.cmt_rollup_read_inspect_state(rollup, input)
     if err != 0:
         logger.error(f"[app] Failed to read inspect: {err} {os.strerror(-err)}")
-        return True # False
+        return True
 
     logger.info(f"[app] inspect request with size {input.payload.length}")
 
     logger.error("[app] ignoring inspect request")
-    return True # False
+    return True
 
 
 ###

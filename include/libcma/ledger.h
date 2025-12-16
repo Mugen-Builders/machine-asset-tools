@@ -81,7 +81,7 @@ CMA_LEDGER_API int cma_ledger_reset(cma_ledger_t *ledger);
 // If it didn't find  the asset and creation type is set with one of the options, create it
 // update the token asset_id <-> (address, token id) mapping
 CMA_LEDGER_API int cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asset_id,
-    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_ledger_asset_type_t asset_type,
+    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_ledger_asset_type_t *asset_type,
     cma_ledger_retrieve_operation_t operation);
 
 // Retrieve/create an account
@@ -89,7 +89,7 @@ CMA_LEDGER_API int cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_as
 // If it didn't find  the account and creation type is set with one of the options, create it
 // update the token id <-> account_id mapping
 CMA_LEDGER_API int cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *account_id,
-    cma_ledger_account_t *account, const void *addr_accid, cma_ledger_account_type_t account_type,
+    cma_ledger_account_t *account, const void *addr_accid, cma_ledger_account_type_t *account_type,
     cma_ledger_retrieve_operation_t operation);
 
 // Deposit
