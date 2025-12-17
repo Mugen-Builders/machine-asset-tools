@@ -346,6 +346,11 @@ auto process_erc20_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) ->
             .append(cma_parser_get_last_error_message()).c_str(), err);
     }
 
+    if (!parser_input.erc20_deposit.success) {
+        std::ignore = std::fprintf(stdout,"[app] erc20 deposit failed\n");
+        throw AppException(std::string("erc20 deposit failed: "), -EINVAL);
+    }
+
     // get asset
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;

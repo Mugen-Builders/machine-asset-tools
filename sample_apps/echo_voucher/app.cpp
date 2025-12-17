@@ -200,6 +200,11 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             return true; // No reverts
         }
 
+        if (!parser_input.erc20_deposit.success) {
+            std::ignore = std::fprintf(stdout,"[app] erc20 deposit failed\n");
+            return true; // No reverts
+        }
+
         // encode voucher
         cma_parser_voucher_data_t voucher_req = {};
         std::ignore =
