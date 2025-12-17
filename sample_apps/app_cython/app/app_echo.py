@@ -26,6 +26,10 @@ def handle_advance(rollup):
         deposit = decode_erc20_deposit(advance)
         logger.info(f"[app] ERC20 deposit decoded {deposit}")
 
+        if not deposit['success']:
+            logger.error("[app] ERC20 deposit failed")
+            return False
+
         rollup.emit_erc20_voucher(deposit['token'], deposit['sender'], deposit['amount'])
         logger.info("[app] Erc20 voucher emitted")
         return True

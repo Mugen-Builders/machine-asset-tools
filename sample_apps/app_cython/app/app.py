@@ -37,6 +37,10 @@ def handle_advance(rollup, ledger):
     if msg_sender == ERC20_PORTAL_ADDRESS:
         deposit = decode_erc20_deposit(advance)
 
+        if not deposit['success']:
+            logger.error("[app] ERC20 deposit failed")
+            return False
+
         asset_info = ledger.retrieve_asset(token=deposit['token'])
         account_info = ledger.retrieve_account(account=deposit['sender'])
 

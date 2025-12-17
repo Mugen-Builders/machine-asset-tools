@@ -82,6 +82,10 @@ def handle_advance():
             logger.error(f"[app] unable to decode erc20 deposit: {err} {lib.cma_parser_get_last_error_message()}")
             return False
 
+        if not parser_input.erc20_deposit.success:
+            logger.error("[app] erc20 deposit failed")
+            return False
+
         # encode voucher
         voucher_req = ffi.new("cma_parser_voucher_data_t *")
         voucher_req.receiver.data = parser_input.erc20_deposit.sender.data

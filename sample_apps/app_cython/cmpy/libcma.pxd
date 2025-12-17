@@ -59,6 +59,7 @@ cdef extern from "/usr/include/libcma/parser.h":
         cma_amount_t amount
         cma_abi_bytes_t exec_layer_data
     ctypedef struct cma_parser_erc20_deposit_t:
+        bint success
         cma_abi_address_t sender
         cma_token_address_t token
         cma_amount_t amount

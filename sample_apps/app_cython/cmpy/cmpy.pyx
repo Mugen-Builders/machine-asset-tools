@@ -169,6 +169,7 @@ cpdef object decode_erc20_deposit(dict input):
     if err != 0:
         raise Exception(f"Failed to decode erc20 deposit ({err} - {libcma.cma_parser_get_last_error_message()})")
     ret = {
+        "success": parser_input[0].erc20_deposit.success,
         "sender": "0x" + parser_input[0].erc20_deposit.sender.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
         "token": "0x" + parser_input[0].erc20_deposit.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
         "amount": int.from_bytes(parser_input[0].erc20_deposit.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
