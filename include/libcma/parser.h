@@ -83,6 +83,7 @@ typedef struct cma_parser_ether_deposit {
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_ether_deposit_t;
 typedef struct cma_parser_erc20_deposit {
+    bool success;
     cma_abi_address_t sender;
     cma_token_address_t token;
     cma_amount_t amount;

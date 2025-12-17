@@ -79,6 +79,17 @@ auto cma_abi_get_bytes(const cmt_buf_t *buf, size_t n_bytes, uint8_t *out) -> vo
     }
 }
 
+auto cma_abi_get_bool_packed(cmt_buf_t *buf, bool *val) -> void {
+    cmt_buf_t lbuf = {};
+    if (cmt_buf_length(buf) < CMA_ABI_BOOL_LENGTH) {
+        throw CmaException("Invalid buffer length", -ENOBUFS);
+    }
+    uint8_t read_value;
+    cma_abi_get_bytes(buf, CMA_ABI_BOOL_LENGTH, &read_value);
+    *val = read_value != 0;
+    cmt_buf_split(buf, CMA_ABI_BOOL_LENGTH, &lbuf, buf);
+}
+
 auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> void {
     cmt_buf_t lbuf = {};
     if (cmt_buf_length(buf) < CMA_ABI_ADDRESS_LENGTH) {
@@ -313,6 +324,7 @@ void cma_parser_decode_erc20_deposit(const cmt_rollup_advance_t &input, cma_pars
     cmt_buf_t buf_data = {};
     cmt_buf_t *buf = &buf_data;
     cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cma_abi_get_bool_packed(buf, &parser_input.erc20_deposit.success);
     cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.token);
     cma_abi_get_address_packed(buf, &parser_input.erc20_deposit.sender);
     const int err = cmt_abi_get_uint256(buf, &parser_input.erc20_deposit.amount);
