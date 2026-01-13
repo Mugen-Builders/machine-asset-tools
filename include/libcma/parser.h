@@ -222,7 +222,7 @@ enum {
     CMA_PARSER_ERC20_VOUCHER_PAYLOAD_SIZE = CMA_PARSER_SELECTOR_SIZE + 2 * CMA_ABI_U256_LENGTH,
     CMA_PARSER_ERC721_VOUCHER_PAYLOAD_SIZE = CMA_PARSER_SELECTOR_SIZE + 3 * CMA_ABI_U256_LENGTH,
     CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE = CMA_PARSER_SELECTOR_SIZE + 6 * CMA_ABI_U256_LENGTH,
-    CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE = CMA_PARSER_SELECTOR_SIZE + 8 * CMA_ABI_U256_LENGTH,
+    CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE = CMA_PARSER_SELECTOR_SIZE + 10 * CMA_ABI_U256_LENGTH,
 };
 
 typedef struct cma_parser_ether_voucher_fields {
@@ -235,7 +235,6 @@ typedef struct cma_parser_erc20_voucher_fields {
 typedef struct cma_parser_erc721_voucher_fields {
     cma_token_address_t token;
     cma_token_id_t token_id;
-    cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc721_voucher_fields_t;
 typedef struct cma_parser_erc1155_single_voucher_fields {
     cma_token_address_t token;

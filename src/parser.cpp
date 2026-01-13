@@ -69,17 +69,35 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
         case CMA_PARSER_INPUT_TYPE_ERC20_DEPOSIT:
             cma_parser_decode_erc20_deposit(*input, *parser_input);
             break;
+        case CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT:
+            cma_parser_decode_erc721_deposit(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT:
+            cma_parser_decode_erc1155_single_deposit(*input, *parser_input);
+            break;
         case CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL:
             cma_parser_decode_ether_withdrawal(*input, *parser_input);
             break;
         case CMA_PARSER_INPUT_TYPE_ERC20_WITHDRAWAL:
             cma_parser_decode_erc20_withdrawal(*input, *parser_input);
             break;
+        case CMA_PARSER_INPUT_TYPE_ERC721_WITHDRAWAL:
+            cma_parser_decode_erc721_withdrawal(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL:
+            cma_parser_decode_erc1155_single_withdrawal(*input, *parser_input);
+            break;
         case CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER:
             cma_parser_decode_ether_transfer(*input, *parser_input);
             break;
         case CMA_PARSER_INPUT_TYPE_ERC20_TRANSFER:
             cma_parser_decode_erc20_transfer(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_ERC721_TRANSFER:
+            cma_parser_decode_erc721_transfer(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER:
+            cma_parser_decode_erc1155_single_transfer(*input, *parser_input);
             break;
         default:
             throw CmaException("Invalid advance decode type", -EINVAL);
@@ -135,12 +153,14 @@ auto cma_parser_encode_voucher(cma_parser_voucher_type_t type, const cma_abi_add
             if (app_address == nullptr) {
                 throw CmaException("Invalid app address", -EINVAL);
             }
+            cma_parser_encode_erc721_voucher(*app_address, *voucher_request, *voucher);
             break;
-        // case CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE:
-        //     if (app_address == nullptr) {
-        //         throw CmaException("Invalid app address", -EINVAL);
-        //     }
-        //     break;
+        case CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE:
+            if (app_address == nullptr) {
+                throw CmaException("Invalid app address", -EINVAL);
+            }
+            cma_parser_encode_erc1155_single_voucher(*app_address, *voucher_request, *voucher);
+            break;
         // case CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH:
         //     if (app_address == nullptr) {
         //         throw CmaException("Invalid app address", -EINVAL);
