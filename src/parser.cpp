@@ -75,6 +75,9 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
         case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT:
             cma_parser_decode_erc1155_single_deposit(*input, *parser_input);
             break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT:
+            cma_parser_decode_erc1155_batch_deposit(*input, *parser_input);
+            break;
         case CMA_PARSER_INPUT_TYPE_ETHER_WITHDRAWAL:
             cma_parser_decode_ether_withdrawal(*input, *parser_input);
             break;
@@ -87,6 +90,9 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
         case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL:
             cma_parser_decode_erc1155_single_withdrawal(*input, *parser_input);
             break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL:
+            cma_parser_decode_erc1155_batch_withdrawal(*input, *parser_input);
+            break;
         case CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER:
             cma_parser_decode_ether_transfer(*input, *parser_input);
             break;
@@ -98,6 +104,9 @@ auto cma_parser_decode_advance(cma_parser_input_type_t type, const cmt_rollup_ad
             break;
         case CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER:
             cma_parser_decode_erc1155_single_transfer(*input, *parser_input);
+            break;
+        case CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER:
+            cma_parser_decode_erc1155_batch_transfer(*input, *parser_input);
             break;
         default:
             throw CmaException("Invalid advance decode type", -EINVAL);
@@ -161,11 +170,12 @@ auto cma_parser_encode_voucher(cma_parser_voucher_type_t type, const cma_abi_add
             }
             cma_parser_encode_erc1155_single_voucher(*app_address, *voucher_request, *voucher);
             break;
-        // case CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH:
-        //     if (app_address == nullptr) {
-        //         throw CmaException("Invalid app address", -EINVAL);
-        //     }
-        //     break;
+        case CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH:
+            if (app_address == nullptr) {
+                throw CmaException("Invalid app address", -EINVAL);
+            }
+            cma_parser_encode_erc1155_batch_voucher(*app_address, *voucher_request, *voucher);
+            break;
         default:
             throw CmaException("Invalid voucher type", -EINVAL);
     }

@@ -77,6 +77,15 @@ typedef enum {
     CMA_PARSER_INPUT_TYPE_SUPPLY_TOKEN_ADDRESS_ID,
 } cma_parser_input_type_t;
 
+typedef uint8_t cma_abi_u256_data[CMT_ABI_U256_LENGTH];
+
+typedef struct cma_abi_u256_list {
+    size_t length;
+    cma_abi_u256_data *data;
+} cma_abi_u256_list_t;
+typedef cma_abi_u256_list_t cma_amounts_t;
+typedef cma_abi_u256_list_t cma_token_ids_t;
+
 typedef struct cma_parser_ether_deposit {
     cma_abi_address_t sender;
     cma_amount_t amount;
@@ -92,6 +101,7 @@ typedef struct cma_parser_erc721_deposit {
     cma_abi_address_t sender;
     cma_token_address_t token;
     cma_token_id_t token_id;
+    cma_abi_bytes_t base_layer_data;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc721_deposit_t;
 typedef struct cma_parser_erc1155_single_deposit {
@@ -99,14 +109,14 @@ typedef struct cma_parser_erc1155_single_deposit {
     cma_token_address_t token;
     cma_token_id_t token_id;
     cma_amount_t amount;
+    cma_abi_bytes_t base_layer_data;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_single_deposit_t;
 typedef struct cma_parser_erc1155_batch_deposit {
     cma_abi_address_t sender;
     cma_token_address_t token;
-    size_t count;
-    cma_token_id_t *token_ids;
-    cma_amount_t *amounts;
+    cma_token_ids_t token_ids;
+    cma_amounts_t amounts;
     cma_abi_bytes_t base_layer_data;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_batch_deposit_t;
@@ -133,9 +143,8 @@ typedef struct cma_parser_erc1155_single_withdrawal {
 } cma_parser_erc1155_single_withdrawal_t;
 typedef struct cma_parser_erc1155_batch_withdrawal {
     cma_token_address_t token;
-    size_t count;
-    cma_token_id_t *token_ids;
-    cma_amount_t *amounts;
+    cma_token_ids_t token_ids;
+    cma_amounts_t amounts;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_batch_withdrawal_t;
 
@@ -166,9 +175,8 @@ typedef struct cma_parser_erc1155_single_transfer {
 typedef struct cma_parser_erc1155_batch_transfer {
     cma_account_id_t receiver;
     cma_token_address_t token;
-    size_t count;
-    cma_token_id_t *token_ids;
-    cma_amount_t *amounts;
+    cma_token_ids_t token_ids;
+    cma_amounts_t amounts;
     cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_batch_transfer_t;
 
@@ -240,12 +248,13 @@ typedef struct cma_parser_erc1155_single_voucher_fields {
     cma_token_address_t token;
     cma_token_id_t token_id;
     cma_amount_t amount;
+    cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_single_voucher_fields_t;
 typedef struct cma_parser_erc1155_batch_voucher_fields {
     cma_token_address_t token;
-    size_t count;
-    cma_token_id_t *token_ids;
-    cma_amount_t *amounts;
+    cma_token_ids_t token_ids;
+    cma_amounts_t amounts;
+    cma_abi_bytes_t exec_layer_data;
 } cma_parser_erc1155_batch_voucher_fields_t;
 
 typedef struct cma_parser_voucher_data {

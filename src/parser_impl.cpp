@@ -88,6 +88,86 @@ auto cma_abi_get_address_packed(cmt_buf_t *buf, cma_abi_address_t *address) -> v
     cmt_buf_split(buf, CMA_ABI_ADDRESS_LENGTH, &lbuf, buf);
 }
 
+int cma_abi_peek_uint256_list_d(const cmt_buf_t *start, cmt_buf_t *offset_buf, cmt_buf_t *bytes) {
+    uint64_t offset = 0;
+    uint64_t size = 0;
+    int err = cmt_abi_get_uint(offset_buf, sizeof(offset), &offset);
+    if (err) {
+        return err;
+    }
+
+    /* from the beginning, after funsel */
+    cmt_buf_t it_data = {start->begin + offset, start->end};
+    cmt_buf_t *it = &it_data;
+    err = cmt_abi_get_uint(it, sizeof(size), &size);
+    if (err) {
+        return err;
+    }
+
+    // fix siz in number of uint256s
+    size = size * CMA_ABI_U256_LENGTH;
+    if (cmt_buf_length(it) < size) {
+        return -ENOBUFS;
+    }
+    return cmt_buf_split(it, size, bytes, it);
+}
+
+int cma_abi_get_uint256_list_d(const cmt_buf_t *start, cmt_buf_t *offset_buf, size_t *n, cma_abi_u256_data **uints) {
+    cmt_buf_t bytes_data = {};
+    cmt_buf_t *bytes = &bytes_data;
+    int rc = cma_abi_peek_uint256_list_d(start, offset_buf, bytes);
+    if (rc) {
+        return rc;
+    }
+    *n = cmt_buf_length(bytes)/CMA_ABI_U256_LENGTH;
+    *uints = reinterpret_cast<cma_abi_u256_data *>(bytes->begin);
+    return 0;
+}
+
+int cma_abi_reserve_uints_d(cmt_buf_t *me, cmt_buf_t *of, size_t n, cmt_buf_t *out, const void *start) {
+    int err = 0;
+    cmt_buf_t tmp_data = {};
+    cmt_buf_t *tmp = &tmp_data;
+    cmt_buf_t uints_data = {};
+    cmt_buf_t *uints = &uints_data;
+    size_t n32 = n * CMT_ABI_U256_LENGTH;
+
+    err = cmt_buf_split(me, CMT_ABI_U256_LENGTH, uints, tmp);
+    if (err) {
+        return err;
+    }
+    err = cmt_buf_split(tmp, n32, out, tmp);
+    if (err) {
+        return err;
+    }
+
+    size_t offset = uints->begin - (uint8_t *) start;
+    err = cmt_abi_encode_uint(sizeof(offset), &offset, of->begin);
+    if (err) {
+        return err;
+    }
+    err = cmt_abi_encode_uint(sizeof(n), &n, uints->begin);
+    if (err) {
+        return err;
+    }
+
+    *me = *tmp; // commit the buffer changes
+    return 0;
+}
+
+int cma_abi_put_uint256_list_d(cmt_buf_t *me, cmt_buf_t *offset, const cmt_buf_t *frame, const cma_abi_u256_list_t *payload) {
+    cmt_buf_t res_data = {};
+    cmt_buf_t *res = &res_data;
+    int rc = cma_abi_reserve_uints_d(me, offset, payload->length, res, frame->begin);
+    if (rc) {
+        return rc;
+    }
+
+    std::span payload_span(reinterpret_cast<uint8_t *>(payload->data), payload->length * CMA_ABI_U256_LENGTH);
+    std::ignore = std::copy_n(payload_span.begin(), payload_span.size(), res->begin);
+    return 0;
+}
+
 auto cma_parser_decode_get_balance_json(const nlohmann::json &json_input, cma_parser_input_t &parser_input) -> void {
     if (!json_input.contains("params")) {
         throw CmaException("Missing params key", -EINVAL);
@@ -292,6 +372,10 @@ void cma_parser_decode_advance_auto(const cmt_rollup_advance_t &input, cma_parse
         cma_parser_decode_erc1155_single_withdrawal(input, parser_input);
         return;
     }
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(WITHDRAW_ERC1155_BATCH)) == 0) {
+        cma_parser_decode_erc1155_batch_withdrawal(input, parser_input);
+        return;
+    }
     if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ETHER)) == 0) {
         cma_parser_decode_ether_transfer(input, parser_input);
         return;
@@ -306,6 +390,10 @@ void cma_parser_decode_advance_auto(const cmt_rollup_advance_t &input, cma_parse
     }
     if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ERC1155_SINGLE)) == 0) {
         cma_parser_decode_erc1155_single_transfer(input, parser_input);
+        return;
+    }
+    if (cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ERC1155_BATCH)) == 0) {
+        cma_parser_decode_erc1155_batch_transfer(input, parser_input);
         return;
     }
     throw CmaException("Invalid funsel", -EINVAL);
@@ -346,12 +434,46 @@ void cma_parser_decode_erc721_deposit(const cmt_rollup_advance_t &input, cma_par
     cmt_buf_init(buf, input.payload.length, input.payload.data);
     cma_abi_get_address_packed(buf, &parser_input.erc721_deposit.token);
     cma_abi_get_address_packed(buf, &parser_input.erc721_deposit.sender);
-    const int err = cmt_abi_get_uint256(buf, &parser_input.erc721_deposit.token_id);
+    int err = cmt_abi_get_uint256(buf, &parser_input.erc721_deposit.token_id);
     if (err != 0) {
         throw CmaException("Error getting token id", err);
     }
-    cma_abi_get_bytes_packed(buf, &parser_input.erc721_deposit.exec_layer_data.length,
+
+    // get data
+    cmt_buf_t buf_payload_data = {};
+    cmt_buf_t *buf_payload = &buf_payload_data;
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_base_data = {};
+    cmt_buf_t *offset_base = &offset_base_data;
+    cmt_buf_t offset_exec_data = {};
+    cmt_buf_t *offset_exec = &offset_exec_data;
+
+    cmt_buf_init(buf_payload, cmt_buf_length(buf), buf->begin);
+    err = cmt_abi_mark_frame(buf_payload, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+
+    err = cmt_abi_get_bytes_s(buf_payload, offset_base);
+    if (err != 0) {
+        throw CmaException("Error getting bytes base offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf_payload, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error getting bytes exec offset", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset_base, &parser_input.erc721_deposit.base_layer_data.length,
+        &parser_input.erc721_deposit.base_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset_exec, &parser_input.erc721_deposit.exec_layer_data.length,
         &parser_input.erc721_deposit.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting exec bytes", err);
+    }
+
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT;
 }
 
@@ -369,9 +491,120 @@ void cma_parser_decode_erc1155_single_deposit(const cmt_rollup_advance_t &input,
     if (err != 0) {
         throw CmaException("Error getting amount", err);
     }
-    cma_abi_get_bytes_packed(buf, &parser_input.erc1155_single_deposit.exec_layer_data.length,
+
+    // get data
+    cmt_buf_t buf_payload_data = {};
+    cmt_buf_t *buf_payload = &buf_payload_data;
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_base_data = {};
+    cmt_buf_t *offset_base = &offset_base_data;
+    cmt_buf_t offset_exec_data = {};
+    cmt_buf_t *offset_exec = &offset_exec_data;
+
+    cmt_buf_init(buf_payload, cmt_buf_length(buf), buf->begin);
+    err = cmt_abi_mark_frame(buf_payload, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+
+    err = cmt_abi_get_bytes_s(buf_payload, offset_base);
+    if (err != 0) {
+        throw CmaException("Error getting bytes base offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf_payload, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error getting bytes exec offset", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset_base, &parser_input.erc1155_single_deposit.base_layer_data.length,
+        &parser_input.erc1155_single_deposit.base_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset_exec, &parser_input.erc1155_single_deposit.exec_layer_data.length,
         &parser_input.erc1155_single_deposit.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting exec bytes", err);
+    }
+
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT;
+}
+
+void cma_parser_decode_erc1155_batch_deposit(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+    int err = 0;
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cma_abi_get_address_packed(buf, &parser_input.erc1155_batch_deposit.token);
+    cma_abi_get_address_packed(buf, &parser_input.erc1155_batch_deposit.sender);
+
+    // get data field
+    cmt_buf_t buf_payload_data = {};
+    cmt_buf_t *buf_payload = &buf_payload_data;
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_token_id_data = {};
+    cmt_buf_t *offset_token_id = &offset_token_id_data;
+    cmt_buf_t offset_amount_data = {};
+    cmt_buf_t *offset_amount = &offset_amount_data;
+    cmt_buf_t offset_base_data = {};
+    cmt_buf_t *offset_base = &offset_base_data;
+    cmt_buf_t offset_exec_data = {};
+    cmt_buf_t *offset_exec = &offset_exec_data;
+
+    cmt_buf_init(buf_payload, cmt_buf_length(buf), buf->begin);
+    err = cmt_abi_mark_frame(buf_payload, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+
+    err = cmt_abi_get_bytes_s(buf_payload, offset_token_id);
+    if (err != 0) {
+        throw CmaException("Error getting bytes token id offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf_payload, offset_amount);
+    if (err != 0) {
+        throw CmaException("Error getting bytes amount offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf_payload, offset_base);
+    if (err != 0) {
+        throw CmaException("Error getting bytes base offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf_payload, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error getting bytes exec offset", err);
+    }
+
+    // get token ids and amounts
+    err = cma_abi_get_uint256_list_d(frame, offset_token_id, &parser_input.erc1155_batch_deposit.token_ids.length,
+        &parser_input.erc1155_batch_deposit.token_ids.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    err = cma_abi_get_uint256_list_d(frame, offset_amount, &parser_input.erc1155_batch_deposit.amounts.length,
+        &parser_input.erc1155_batch_deposit.amounts.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    if (parser_input.erc1155_batch_deposit.token_ids.length !=
+        parser_input.erc1155_batch_deposit.amounts.length) {
+        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
+    }
+
+    err = cmt_abi_get_bytes_d(frame, offset_base, &parser_input.erc1155_batch_deposit.base_layer_data.length,
+        &parser_input.erc1155_batch_deposit.base_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+    err = cmt_abi_get_bytes_d(frame, offset_exec, &parser_input.erc1155_batch_deposit.exec_layer_data.length,
+        &parser_input.erc1155_batch_deposit.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting exec bytes", err);
+    }
+
+    parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT;
 }
 
 void cma_parser_decode_ether_withdrawal(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
@@ -528,6 +761,73 @@ void cma_parser_decode_erc1155_single_withdrawal(const cmt_rollup_advance_t &inp
         throw CmaException("Error getting bytes", err);
     }
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL;
+}
+
+void cma_parser_decode_erc1155_batch_withdrawal(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_token_id_data = {};
+    cmt_buf_t *offset_token_id = &offset_token_id_data;
+    cmt_buf_t offset_amount_data = {};
+    cmt_buf_t *offset_amount = &offset_amount_data;
+    cmt_buf_t offset_exec_data = {};
+    cmt_buf_t *offset_exec = &offset_exec_data;
+
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, convert_to_cmt_funsel(WITHDRAW_ERC1155_BATCH));
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
+    }
+
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+    err = cmt_abi_get_address(buf, &parser_input.erc1155_batch_withdrawal.token);
+    if (err != 0) {
+        throw CmaException("Error getting token", err);
+    }
+
+    err = cmt_abi_get_bytes_s(buf, offset_token_id);
+    if (err != 0) {
+        throw CmaException("Error getting bytes token id offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf, offset_amount);
+    if (err != 0) {
+        throw CmaException("Error getting bytes amount offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error getting bytes exec offset", err);
+    }
+
+    // get token ids and amounts
+    err = cma_abi_get_uint256_list_d(frame, offset_token_id, &parser_input.erc1155_batch_withdrawal.token_ids.length,
+        &parser_input.erc1155_batch_withdrawal.token_ids.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    err = cma_abi_get_uint256_list_d(frame, offset_amount, &parser_input.erc1155_batch_withdrawal.amounts.length,
+        &parser_input.erc1155_batch_withdrawal.amounts.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    if (parser_input.erc1155_batch_withdrawal.token_ids.length !=
+        parser_input.erc1155_batch_withdrawal.amounts.length) {
+        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
+    }
+
+    err = cmt_abi_get_bytes_d(frame, offset_exec, &parser_input.erc1155_batch_withdrawal.exec_layer_data.length,
+        &parser_input.erc1155_batch_withdrawal.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
+    }
+    parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL;
 }
 
 void cma_parser_decode_ether_transfer(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
@@ -702,6 +1002,77 @@ void cma_parser_decode_erc1155_single_transfer(const cmt_rollup_advance_t &input
     parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER;
 }
 
+void cma_parser_decode_erc1155_batch_transfer(const cmt_rollup_advance_t &input, cma_parser_input_t &parser_input) {
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, input.payload.length, input.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_token_id_data = {};
+    cmt_buf_t *offset_token_id = &offset_token_id_data;
+    cmt_buf_t offset_amount_data = {};
+    cmt_buf_t *offset_amount = &offset_amount_data;
+    cmt_buf_t offset_exec_data = {};
+    cmt_buf_t *offset_exec = &offset_exec_data;
+
+    int err = 0;
+    err = cmt_abi_check_funsel(buf, convert_to_cmt_funsel(TRANSFER_ERC1155_BATCH));
+    if (err != 0) {
+        throw CmaException("Invalid funsel", err);
+    }
+
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+    err = cmt_abi_get_address(buf, &parser_input.erc1155_batch_transfer.token);
+    if (err != 0) {
+        throw CmaException("Error getting token", err);
+    }
+    err = cmt_abi_get_uint256(buf, &parser_input.erc1155_batch_transfer.receiver);
+    if (err != 0) {
+        throw CmaException("Error getting receiver", err);
+    }
+
+    err = cmt_abi_get_bytes_s(buf, offset_token_id);
+    if (err != 0) {
+        throw CmaException("Error getting bytes token id offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf, offset_amount);
+    if (err != 0) {
+        throw CmaException("Error getting bytes amount offset", err);
+    }
+    err = cmt_abi_get_bytes_s(buf, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error getting bytes exec offset", err);
+    }
+
+    // get token ids and amounts
+    err = cma_abi_get_uint256_list_d(frame, offset_token_id, &parser_input.erc1155_batch_transfer.token_ids.length,
+        &parser_input.erc1155_batch_transfer.token_ids.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    err = cma_abi_get_uint256_list_d(frame, offset_amount, &parser_input.erc1155_batch_transfer.amounts.length,
+        &parser_input.erc1155_batch_transfer.amounts.data);
+    if (err != 0) {
+        throw CmaException("Error getting base bytes", err);
+    }
+
+    if (parser_input.erc1155_batch_transfer.token_ids.length !=
+        parser_input.erc1155_batch_transfer.amounts.length) {
+        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
+    }
+
+    err = cmt_abi_get_bytes_d(frame, offset_exec, &parser_input.erc1155_batch_transfer.exec_layer_data.length,
+        &parser_input.erc1155_batch_transfer.exec_layer_data.data);
+    if (err != 0) {
+        throw CmaException("Error getting bytes", err);
+    }
+    parser_input.type = CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER;
+}
+
 /*
  * Decode inspect functions
  */
@@ -793,12 +1164,13 @@ auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_re
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 
-    const std::span receiver_span(voucher_request.receiver.data);
     const std::span token_span(voucher_request.erc20.token.data);
-    const std::span amount_span(voucher_request.erc20.amount.data);
     std::span voucher_address_span(voucher.address.data);
     std::span voucher_value_span(voucher.value.data);
-    std::span payload_span(static_cast<uint8_t *>(voucher.payload.data), voucher.payload.length);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, voucher.payload.length, voucher.payload.data);
+    int err;
 
     // 2: copy token address to voucher address
     std::ignore = std::copy_n(token_span.begin(), token_span.size(), voucher_address_span.begin());
@@ -807,19 +1179,23 @@ auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_re
     std::fill_n(voucher_value_span.begin(), voucher_value_span.size(), (uint8_t) 0);
 
     // 4: copy funsel to payload
-    Uint32Bytes funsel;
-    funsel.value = convert_to_cmt_funsel(ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL);
-    std::ignore = std::copy_n(std::begin(funsel.bytes), CMA_PARSER_SELECTOR_SIZE, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_PARSER_SELECTOR_SIZE);
+    err = cmt_abi_put_funsel(buf, convert_to_cmt_funsel(ERC20_TRANSFER_FUNCTION_SELECTOR_FUNSEL));
+    if (err != 0) {
+        throw CmaException("Error putting funsel", err);
+    }
 
     // 5: copy receiver to payload
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH, (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH);
-    std::ignore = std::copy_n(receiver_span.begin(), CMA_ABI_ADDRESS_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_ADDRESS_LENGTH);
+    err = cmt_abi_put_address(buf, &voucher_request.receiver);
+    if (err != 0) {
+        throw CmaException("Error putting receiver", err);
+    }
 
     // 6: copy amount to payload
-    std::ignore = std::copy_n(amount_span.begin(), CMA_ABI_U256_LENGTH, payload_span.begin());
+    err = cmt_abi_put_uint256(buf, &voucher_request.erc20.amount);
+    if (err != 0) {
+        throw CmaException("Error putting amount", err);
+    }
+
 }
 
 auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
@@ -831,13 +1207,13 @@ auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address, cons
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 
-    const std::span sender_span(app_address.data);
-    const std::span receiver_span(voucher_request.receiver.data);
     const std::span token_span(voucher_request.erc721.token.data);
-    const std::span token_id_span(voucher_request.erc721.token_id.data);
     std::span voucher_address_span(voucher.address.data);
     std::span voucher_value_span(voucher.value.data);
-    std::span payload_span(static_cast<uint8_t *>(voucher.payload.data), voucher.payload.length);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, voucher.payload.length, voucher.payload.data);
+    int err;
 
     // 2: copy token address to voucher address
     std::ignore = std::copy_n(token_span.begin(), token_span.size(), voucher_address_span.begin());
@@ -846,25 +1222,28 @@ auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address, cons
     std::fill_n(voucher_value_span.begin(), voucher_value_span.size(), (uint8_t) 0);
 
     // 4: copy funsel to payload
-    Uint32Bytes funsel;
-    funsel.value = convert_to_cmt_funsel(ERC721_TRANSFER_FUNCTION_SELECTOR_FUNSEL);
-    std::ignore = std::copy_n(std::begin(funsel.bytes), CMA_PARSER_SELECTOR_SIZE, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_PARSER_SELECTOR_SIZE);
+    err = cmt_abi_put_funsel(buf, convert_to_cmt_funsel(ERC721_TRANSFER_FUNCTION_SELECTOR_FUNSEL));
+    if (err != 0) {
+        throw CmaException("Error putting funsel", err);
+    }
 
     // 5: copy sender (app) to payload
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH, (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH);
-    std::ignore = std::copy_n(sender_span.begin(), CMA_ABI_ADDRESS_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_ADDRESS_LENGTH);
+    err = cmt_abi_put_address(buf, &app_address);
+    if (err != 0) {
+        throw CmaException("Error putting sender", err);
+    }
 
     // 6: copy receiver to payload
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH, (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH);
-    std::ignore = std::copy_n(receiver_span.begin(), CMA_ABI_ADDRESS_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_ADDRESS_LENGTH);
+    err = cmt_abi_put_address(buf, &voucher_request.receiver);
+    if (err != 0) {
+        throw CmaException("Error putting receiver", err);
+    }
 
     // 7: copy token id to payload
-    std::ignore = std::copy_n(token_id_span.begin(), CMA_ABI_U256_LENGTH, payload_span.begin());
+    err = cmt_abi_put_uint256(buf, &voucher_request.erc721.token_id);
+    if (err != 0) {
+        throw CmaException("Error putting amount", err);
+    }
 }
 
 auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
@@ -876,14 +1255,17 @@ auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_addre
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 
-    const std::span sender_span(app_address.data);
-    const std::span receiver_span(voucher_request.receiver.data);
     const std::span token_span(voucher_request.erc1155_single.token.data);
-    const std::span token_id_span(voucher_request.erc1155_single.token_id.data);
-    const std::span amount_span(voucher_request.erc1155_single.amount.data);
     std::span voucher_address_span(voucher.address.data);
     std::span voucher_value_span(voucher.value.data);
-    std::span payload_span(static_cast<uint8_t *>(voucher.payload.data), voucher.payload.length);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, voucher.payload.length, voucher.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset = &offset_data;
+    int err;
 
     // 2: copy token address to voucher address
     std::ignore = std::copy_n(token_span.begin(), token_span.size(), voucher_address_span.begin());
@@ -892,40 +1274,138 @@ auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_addre
     std::fill_n(voucher_value_span.begin(), voucher_value_span.size(), (uint8_t) 0);
 
     // 4: copy funsel to payload
-    Uint32Bytes funsel;
-    funsel.value = convert_to_cmt_funsel(ERC1155_SINGLE_TRANSFER_FUNCTION_SELECTOR_FUNSEL);
-    std::ignore = std::copy_n(std::begin(funsel.bytes), CMA_PARSER_SELECTOR_SIZE, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_PARSER_SELECTOR_SIZE);
+    err = cmt_abi_put_funsel(buf, convert_to_cmt_funsel(ERC1155_SINGLE_TRANSFER_FUNCTION_SELECTOR_FUNSEL));
+    if (err != 0) {
+        throw CmaException("Error putting funsel", err);
+    }
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
 
     // 5: copy sender (app) to payload
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH, (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH);
-    std::ignore = std::copy_n(sender_span.begin(), CMA_ABI_ADDRESS_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_ADDRESS_LENGTH);
+    err = cmt_abi_put_address(buf, &app_address);
+    if (err != 0) {
+        throw CmaException("Error putting sender", err);
+    }
 
     // 6: copy receiver to payload
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH, (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - CMA_ABI_ADDRESS_LENGTH);
-    std::ignore = std::copy_n(receiver_span.begin(), CMA_ABI_ADDRESS_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_ADDRESS_LENGTH);
+    err = cmt_abi_put_address(buf, &voucher_request.receiver);
+    if (err != 0) {
+        throw CmaException("Error putting receiver", err);
+    }
 
     // 7: copy token id to payload
-    std::ignore = std::copy_n(token_id_span.begin(), CMA_ABI_U256_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH);
+    err = cmt_abi_put_uint256(buf, &voucher_request.erc1155_single.token_id);
+    if (err != 0) {
+        throw CmaException("Error putting amount", err);
+    }
 
     // 8: copy amount to payload
-    std::ignore = std::copy_n(amount_span.begin(), CMA_ABI_U256_LENGTH, payload_span.begin());
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH);
+    err = cmt_abi_put_uint256(buf, &voucher_request.erc1155_single.amount);
+    if (err != 0) {
+        throw CmaException("Error putting amount", err);
+    }
 
     // 9: copy data offset to payload
-    Uint32Bytes offset_converter;
-    offset_converter.value = 5 * CMA_ABI_U256_LENGTH;
-    const std::span offset_span(offset_converter.bytes);
-    std::fill_n(payload_span.begin(), CMA_ABI_U256_LENGTH - offset_span.size(), (uint8_t) 0);
-    payload_span = payload_span.subspan(CMA_ABI_U256_LENGTH - offset_span.size());
-    std::ignore = std::reverse_copy(offset_span.begin(), offset_span.end(), payload_span.begin());
-    payload_span = payload_span.subspan(offset_span.size());
+    err = cmt_abi_put_bytes_s(buf, offset);
+    if (err != 0) {
+        throw CmaException("Error putting offset", err);
+    }
 
-    // 10: copy data size to payload
-    std::fill_n(payload_span.begin(), payload_span.size(), (uint8_t) 0);
+    // 10: copy data to payload
+    err = cmt_abi_put_bytes_d(buf, offset, frame, &voucher_request.erc1155_single.exec_layer_data);
+    if (err != 0) {
+        throw CmaException("Error putting data", err);
+    }
+}
+
+auto cma_parser_encode_erc1155_batch_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
+    // 1: check sizes of voucher struct
+    if (voucher.payload.data == nullptr) {
+        throw CmaException("Invalid voucher payload buffer", -ENOBUFS);
+    }
+    if (voucher.payload.length < CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE) {
+        throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
+    }
+    if (voucher_request.erc1155_batch.token_ids.length !=
+        voucher_request.erc1155_batch.amounts.length) {
+        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
+    }
+
+    const std::span token_span(voucher_request.erc1155_batch.token.data);
+    std::span voucher_address_span(voucher.address.data);
+    std::span voucher_value_span(voucher.value.data);
+    cmt_buf_t buf_data = {};
+    cmt_buf_t *buf = &buf_data;
+    cmt_buf_init(buf, voucher.payload.length, voucher.payload.data);
+    cmt_buf_t frame_data = {};
+    cmt_buf_t *frame = &frame_data;
+    cmt_buf_t offset_token_id_data = {};
+    cmt_buf_t *offset_token_id = &offset_token_id_data;
+    cmt_buf_t offset_amount_data = {};
+    cmt_buf_t *offset_amount = &offset_amount_data;
+    cmt_buf_t offset_data = {};
+    cmt_buf_t *offset_exec = &offset_data;
+    int err;
+
+    // 2: copy token address to voucher address
+    std::ignore = std::copy_n(token_span.begin(), token_span.size(), voucher_address_span.begin());
+
+    // 3: ensure no value
+    std::fill_n(voucher_value_span.begin(), voucher_value_span.size(), (uint8_t) 0);
+
+    // 4: copy funsel to payload
+    err = cmt_abi_put_funsel(buf, convert_to_cmt_funsel(ERC1155_BATCH_TRANSFER_FUNCTION_SELECTOR_FUNSEL));
+    if (err != 0) {
+        throw CmaException("Error putting funsel", err);
+    }
+    err = cmt_abi_mark_frame(buf, frame);
+    if (err != 0) {
+        throw CmaException("Error marking frame", err);
+    }
+
+    // 5: copy sender (app) to payload
+    err = cmt_abi_put_address(buf, &app_address);
+    if (err != 0) {
+        throw CmaException("Error putting sender", err);
+    }
+
+    // 6: copy receiver to payload
+    err = cmt_abi_put_address(buf, &voucher_request.receiver);
+    if (err != 0) {
+        throw CmaException("Error putting receiver", err);
+    }
+
+    // 7: set offsets on payload
+    err = cmt_abi_put_bytes_s(buf, offset_token_id);
+    if (err != 0) {
+        throw CmaException("Error putting token id offset", err);
+    }
+    err = cmt_abi_put_bytes_s(buf, offset_amount);
+    if (err != 0) {
+        throw CmaException("Error putting amount offset", err);
+    }
+    err = cmt_abi_put_bytes_s(buf, offset_exec);
+    if (err != 0) {
+        throw CmaException("Error putting data offset", err);
+    }
+
+    // 8: copy token ids to payload
+    err = cma_abi_put_uint256_list_d(buf, offset_token_id, frame, &voucher_request.erc1155_batch.token_ids);
+    if (err != 0) {
+        throw CmaException("Error putting token ids", err);
+    }
+
+    // 9: copy amounts to payload
+    err = cma_abi_put_uint256_list_d(buf, offset_amount, frame, &voucher_request.erc1155_batch.amounts);
+    if (err != 0) {
+        throw CmaException("Error putting amounts", err);
+    }
+
+    // 10: copy data to payload
+    err = cmt_abi_put_bytes_d(buf, offset_exec, frame, &voucher_request.erc1155_batch.exec_layer_data);
+    if (err != 0) {
+        throw CmaException("Error putting offset", err);
+    }
 }
