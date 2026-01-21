@@ -3418,7 +3418,7 @@ void test_erc1155_batch_voucher(void) {
     }}, .token_ids = { .length = sizeof(token_ids)/CMA_ABI_U256_LENGTH, .data = token_ids
     }, .amounts = { .length = sizeof(amounts)/CMA_ABI_U256_LENGTH, .data = amounts
     }}};
-    uint8_t voucher_payload_buffer[CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE];
+    uint8_t voucher_payload_buffer[CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE + sizeof(token_ids) + sizeof(amounts)];
     cma_voucher_t voucher = { .payload = {
         .length = sizeof(voucher_payload_buffer),
         .data = voucher_payload_buffer
