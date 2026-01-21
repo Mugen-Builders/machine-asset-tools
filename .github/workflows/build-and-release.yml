@@ -47,7 +47,9 @@ jobs:
       - name: Build Alpine
         run: |
           mkdir -p artifacts
-          make docker DOCKERFILE=alpine.dockerfile ARGS="tar-files"
+          ls -la artifacts
+          make docker DOCKERFILE=alpine.dockerfile ARGS="tar-files" VERSION=${{ env.VERSION }}
+          ls -la build/_tar
           cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz
           cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz
           mkdir -p sample_apps/app_cython/.misc
@@ -60,7 +62,7 @@ jobs:
       - name: Build Ubuntu
         run: |
           mkdir -p artifacts
-          make docker DOCKERFILE=ubuntu.dockerfile ARGS="tar-files"
+          make docker DOCKERFILE=ubuntu.dockerfile ARGS="tar-files" VERSION=${{ env.VERSION }}
           cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz
           cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz
           mkdir -p sample_apps/app_cython/.misc
