@@ -75,7 +75,7 @@ $(libcma_LIB): $(libcma_OBJ)
 	$(AR) rcs $@ $^
 
 $(libcma_SO): $(libcma_OBJ)
-	$(CXX) -shared -o $@ $^
+	$(CXX) -shared -o $@ $^ -lcmt
 
 libcma: $(libcma_LIB) $(libcma_SO)
 
@@ -99,6 +99,24 @@ install-dev: $(libcma_LIB) build/ffi.h
 	    tools/libcma.pc.in > $(DESTDIR)$(PREFIX)/lib/pkgconfig/libcma.pc
 
 install: install-run install-dev
+
+tar-files: $(libcma_SO) $(libcma_LIB) build/ffi.h
+	@mkdir -p build/_tar
+	@rm -rf build/_install
+	@mkdir -p build/_install/usr/lib
+
+	@cp -f $(libcma_SO) build/_install/usr/lib
+	@cd build/_install && tar -czf ../_tar/machine-asset-tools.tar.gz *
+
+	@mkdir -p build/_install/usr/lib
+	@cp -f $(libcma_LIB) build/_install/usr/lib
+	@mkdir -p build/_install/usr/include/libcma/
+	@cp -f include/libcma/*.h build/_install/usr/include/libcma/
+	@cp -f build/ffi.h build/_install/usr/include/libcma/
+	@mkdir -p build/_install/usr/lib/pkgconfig
+	@sed -e 's|@PREFIX@|/usr|g' -e 's|@ARG_VERSION@|$(VERSION)|g'\
+	    tools/libcma.pc.in > build/_install/usr/lib/pkgconfig/libcma.pc
+	@cd build/_install && tar -czf ../_tar/machine-asset-tools-dev.tar.gz *
 
 control: tools/control.in
 	@sed 's|ARG_VERSION|$(VERSION)|g' tools/control.in > control

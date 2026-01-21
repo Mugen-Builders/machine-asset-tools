@@ -1,9 +1,11 @@
 ################################
 # builder
 ARG IMAGE_NAME=riscv64/alpine
-ARG IMAGE_TAG=3.22.1
+ARG IMAGE_TAG=3.22.2
 ARG MACHINE_GUEST_TOOLS_VERSION=0.17.1-r1
-ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.2
+ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.3
+ARG MACHINE_ASSET_TOOLS_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
+ARG MACHINE_ASSET_TOOLS_DEV_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 
 ### Base
 FROM --platform=linux/riscv64 ${IMAGE_NAME}:${IMAGE_TAG} AS base
@@ -15,10 +17,9 @@ RUN echo "https://edubart.github.io/linux-packages/apk/stable" >> /etc/apk/repos
 RUN apk update && \
     apk add cartesi-machine-guest-tools=${MACHINE_GUEST_TOOLS_VERSION}
 
-ARG MACHINE_ASSET_TOOLS_VERSION
-ADD https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz /tmp/
-RUN tar -xzf /tmp/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz -C / && \
-    rm /tmp/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
+ARG MACHINE_ASSET_TOOLS_TAR
+ADD ${MACHINE_ASSET_TOOLS_TAR} /
+
 
 ### Builder
 FROM base AS builder
@@ -31,10 +32,8 @@ RUN apk add \
     clang-dev=20.1.8-r0 \
     cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
 
-ARG MACHINE_ASSET_TOOLS_VERSION
-ADD https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz /tmp/
-RUN tar -xzf /tmp/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz -C / && \
-    rm /tmp/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
+ARG MACHINE_ASSET_TOOLS_DEV_TAR
+ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /
 
 WORKDIR /opt/build/app
 

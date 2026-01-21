@@ -287,8 +287,8 @@ void test_erc721_deposit(void) {
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, NULL, &parser_input) == -EINVAL);
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == -EINVAL);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &advance1, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT);
 
@@ -362,8 +362,8 @@ void test_erc721_deposit(void) {
     };
     // clang-format on
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &advance2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &advance2, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(memcmp(parser_input.erc721_deposit.sender.data, address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
     assert(memcmp(parser_input.erc721_deposit.token_id.data, token_id1.data, CMA_ABI_U256_LENGTH) == 0);
@@ -404,17 +404,17 @@ void test_erc721_deposit(void) {
     cmt_rollup_advance_t malformed_advance5 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance1, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance1, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance2, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance2, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance3, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance3, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance4, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &malformed_advance4, &parser_input) ==
+        -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it can't detect (the error is the definition of
     //   the advance input)
@@ -467,8 +467,8 @@ void test_erc1155_single_deposit(void) {
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, NULL, &parser_input) == -EINVAL);
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == -EINVAL);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &advance1, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT);
 
@@ -553,8 +553,8 @@ void test_erc1155_single_deposit(void) {
     };
     // clang-format on
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &advance2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &advance2, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(memcmp(parser_input.erc1155_single_deposit.sender.data, address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
     assert(memcmp(parser_input.erc1155_single_deposit.token_id.data, token_id1.data, CMA_ABI_U256_LENGTH) == 0);
@@ -611,25 +611,25 @@ void test_erc1155_single_deposit(void) {
     cmt_rollup_advance_t malformed_advance6 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance1, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance1,
+               &parser_input) == -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance2, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance2,
+               &parser_input) == -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance3, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance3,
+               &parser_input) == -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance4, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance4,
+               &parser_input) == -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance5, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance5,
+               &parser_input) == -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it can't detect (the error is the definition of
     //   the advance input)
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance6, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &malformed_advance6,
+               &parser_input) == CMA_PARSER_SUCCESS);
 
     printf("%s passed\n", __FUNCTION__);
 }
@@ -701,8 +701,8 @@ void test_erc1155_batch_deposit(void) {
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, NULL, &parser_input) == -EINVAL);
     assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_AUTO, &advance1, &parser_input) == -EINVAL);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &advance1, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &advance1, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(parser_input.type == CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT);
 
@@ -827,8 +827,8 @@ void test_erc1155_batch_deposit(void) {
     };
     // clang-format on
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &advance2, &parser_input) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &advance2, &parser_input) ==
+        CMA_PARSER_SUCCESS);
 
     assert(memcmp(parser_input.erc1155_batch_deposit.sender.data, address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
     assert(parser_input.erc1155_batch_deposit.token_ids.length == 2);
@@ -975,23 +975,23 @@ void test_erc1155_batch_deposit(void) {
     cmt_rollup_advance_t malformed_advance7 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance1, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance1, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance2, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance2, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance3, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance3, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance4, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance4, &parser_input) ==
+        -ENOBUFS);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance5, &parser_input) == -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance5, &parser_input) ==
+        -EINVAL);
 
-    assert(
-        cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance6, &parser_input) == -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &malformed_advance6, &parser_input) ==
+        -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it can't detect (the error is the definition of
     //   the advance input)
@@ -1630,27 +1630,27 @@ void test_erc1155_single_withdraw(void) {
     cmt_rollup_advance_t malformed_advance7 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance1, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance1,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance2, &parser_input) ==
-        -EBADMSG);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance2,
+               &parser_input) == -EBADMSG);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance3, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance3,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance4, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance4,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance5, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance5,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance6, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance6,
+               &parser_input) == -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it wouldn't get
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance7, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL, &malformed_advance7,
+               &parser_input) == CMA_PARSER_SUCCESS);
 
     printf("%s passed\n", __FUNCTION__);
 }
@@ -1895,27 +1895,27 @@ void test_erc1155_batch_withdraw(void) {
     cmt_rollup_advance_t malformed_advance7 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance1, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance1,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance2, &parser_input) ==
-        -EBADMSG);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance2,
+               &parser_input) == -EBADMSG);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance3, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance3,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance4, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance4,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance5, &parser_input) ==
-        -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance5,
+               &parser_input) == -EINVAL);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance6, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance6,
+               &parser_input) == -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it wouldn't get
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance7, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL, &malformed_advance7,
+               &parser_input) == CMA_PARSER_SUCCESS);
 
     printf("%s passed\n", __FUNCTION__);
 }
@@ -2715,36 +2715,36 @@ void test_erc1155_single_transfer(void) {
     cmt_rollup_advance_t malformed_advance10 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance1, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance1,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance2, &parser_input) ==
-        -EBADMSG);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance2,
+               &parser_input) == -EBADMSG);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance3, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance3,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance4, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance4,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance5, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance5,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance6, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance6,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance7, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance7,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance8, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance8,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance9, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance9,
+               &parser_input) == -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it wouldn't get
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance10, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance10,
+               &parser_input) == CMA_PARSER_SUCCESS);
 
     printf("%s passed\n", __FUNCTION__);
 }
@@ -3068,36 +3068,36 @@ void test_erc1155_batch_transfer(void) {
     cmt_rollup_advance_t malformed_advance10 = {
         .payload = {.length = sizeof(data_advance2) + 20, .data = data_advance2}};
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance1, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance1,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance2, &parser_input) ==
-        -EBADMSG);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance2,
+               &parser_input) == -EBADMSG);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance3, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance3,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance4, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance4,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance5, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance5,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance6, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance6,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance7, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance7,
+               &parser_input) == -ENOBUFS);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance8, &parser_input) ==
-        -EINVAL);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance8,
+               &parser_input) == -EINVAL);
 
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance9, &parser_input) ==
-        -ENOBUFS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER, &malformed_advance9,
+               &parser_input) == -ENOBUFS);
 
     // despite being malformed, the parser doesn't give an error because it wouldn't get
-    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance10, &parser_input) ==
-        CMA_PARSER_SUCCESS);
+    assert(cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER, &malformed_advance10,
+               &parser_input) == CMA_PARSER_SUCCESS);
 
     printf("%s passed\n", __FUNCTION__);
 }
@@ -3263,8 +3263,8 @@ void test_erc721_voucher(void) {
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC721, NULL, &voucher_req, &voucher) == -EINVAL);
 
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_NONE, &app_address, &voucher_req, &voucher) == -EINVAL);
-    assert(
-        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC721, &app_address, &voucher_req, &voucher) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC721, &app_address, &voucher_req, &voucher) ==
+        CMA_PARSER_SUCCESS);
 
     // clang-format off
     cma_abi_address_t token1 = {.data = {
@@ -3334,13 +3334,14 @@ void test_erc1155_single_voucher(void) {
 
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, NULL, NULL, NULL) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, NULL, NULL) == -EINVAL);
-    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, &voucher_req, NULL) == -EINVAL);
+    assert(
+        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, &voucher_req, NULL) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, NULL, &voucher) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, NULL, &voucher_req, &voucher) == -EINVAL);
 
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_NONE, &app_address, &voucher_req, &voucher) == -EINVAL);
-    assert(
-        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, &voucher_req, &voucher) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &app_address, &voucher_req, &voucher) ==
+        CMA_PARSER_SUCCESS);
 
     // clang-format off
     cma_abi_address_t token1 = {.data = {
@@ -3426,14 +3427,15 @@ void test_erc1155_batch_voucher(void) {
 
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, NULL, NULL, NULL) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, NULL, NULL) == -EINVAL);
-    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, &voucher_req, NULL) == -EINVAL);
+    assert(
+        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, &voucher_req, NULL) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, NULL, &voucher) == -EINVAL);
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, NULL, &voucher_req, &voucher) == -EINVAL);
 
     assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_NONE, &app_address, &voucher_req, &voucher) == -EINVAL);
 
-    assert(
-        cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, &voucher_req, &voucher) == CMA_PARSER_SUCCESS);
+    assert(cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &app_address, &voucher_req, &voucher) ==
+        CMA_PARSER_SUCCESS);
 
     // clang-format off
     cma_abi_address_t token1 = {.data = {

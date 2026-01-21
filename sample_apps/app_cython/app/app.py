@@ -1,10 +1,16 @@
 
 import logging
 import os
-from cmpy import Rollup, Ledger, decode_ether_deposit, decode_erc20_deposit, decode_advance, decode_inspect
+import traceback
+from cmpy import Rollup, decode_advance, decode_inspect, decode_ether_deposit, decode_erc20_deposit, \
+    decode_erc721_deposit, decode_erc1155_single_deposit, decode_erc1155_batch_deposit, \
+    Ledger
 
-ETHER_PORTAL_ADDRESS = '0xc70076a466789B595b50959cdc261227F0D70051'[2:].lower()
-ERC20_PORTAL_ADDRESS = '0xc700D6aDd016eECd59d989C028214Eaa0fCC0051'[2:].lower()
+ETHER_PORTAL_ADDRESS = "0xA632c5c05812c6a6149B7af5C56117d1D2603828"[2:].lower()
+ERC20_PORTAL_ADDRESS = "0xACA6586A0Cf05bD831f2501E7B4aea550dA6562D"[2:].lower()
+ERC721_PORTAL_ADDRESS = "0x9E8851dadb2b77103928518846c4678d48b5e371"[2:].lower()
+ERC1155_SINGLE_PORTAL_ADDRESS = "0x18558398Dd1a8cE20956287a4Da7B76aE7A96662"[2:].lower()
+ERC1155_BATCH_PORTAL_ADDRESS = "0xe246Abb974B307490d9C6932F48EbE79de72338A"[2:].lower()
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -44,6 +50,37 @@ def handle_advance(rollup, ledger):
         logger.info(f"[app] {deposit['sender']} deposited {deposit['amount']} of token {asset_info['token']}")
         return True
 
+    if msg_sender == ERC721_PORTAL_ADDRESS:
+        deposit = decode_erc721_deposit(advance)
+
+        asset_info = ledger.retrieve_asset(token=deposit['token'],token_id=deposit['token_id'])
+        account_info = ledger.retrieve_account(account=deposit['sender'])
+
+        ledger.deposit(asset_info['asset_id'], account_info['account_id'], 1)
+        logger.info(f"[app] {deposit['sender']} deposited id {deposit['token_id']} from token {asset_info['token']}")
+        return True
+
+    if msg_sender == ERC1155_SINGLE_PORTAL_ADDRESS:
+        deposit = decode_erc1155_single_deposit(advance)
+
+        asset_info = ledger.retrieve_asset(token=deposit['token'],token_id=deposit['token_id'])
+        account_info = ledger.retrieve_account(account=deposit['sender'])
+
+        ledger.deposit(asset_info['asset_id'], account_info['account_id'], deposit['amount'])
+        logger.info(f"[app] {deposit['sender']} deposited {deposit['amount']} of id {deposit['token_id']} from token {asset_info['token']}")
+        return True
+
+    if msg_sender == ERC1155_BATCH_PORTAL_ADDRESS:
+        deposit = decode_erc1155_batch_deposit(advance)
+
+        account_info = ledger.retrieve_account(account=deposit['sender'])
+        for i in range(len(deposit['token_ids'])):
+            asset_info = ledger.retrieve_asset(token=deposit['token'],token_id=deposit['token_ids'][i])
+
+            ledger.deposit(asset_info['asset_id'], account_info['account_id'], deposit['amounts'][i])
+            logger.info(f"[app] {deposit['sender']} deposited {deposit['amounts'][i]} of id {deposit['token_ids'][i]} from token {asset_info['token']}")
+        return True
+
     try:
         decoded_advance = decode_advance(advance)
         logger.info(f"[app] Advance is {decoded_advance['type']}")
@@ -68,6 +105,40 @@ def handle_advance(rollup, ledger):
             logger.info("[app] Erc20 voucher emitted")
             return True
 
+        if decoded_advance['type'] == 'ERC721_WITHDRAWAL':
+            asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_id'])
+            account_info = ledger.retrieve_account(account=msg_sender)
+
+            ledger.withdraw(asset_info['asset_id'], account_info['account_id'], 1)
+            logger.info(f"[app] {msg_sender} withdrew id {decoded_advance['token_id']} from token {asset_info['token']}")
+
+            rollup.emit_erc721_voucher(asset_info['token'], msg_sender, decoded_advance['token_id'])
+            logger.info("[app] Erc721 voucher emitted")
+            return True
+
+        if decoded_advance['type'] == 'ERC1155_SINGLE_WITHDRAWAL':
+            asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_id'])
+            account_info = ledger.retrieve_account(account=msg_sender)
+
+            ledger.withdraw(asset_info['asset_id'], account_info['account_id'], decoded_advance['amount'])
+            logger.info(f"[app] {msg_sender} withdrew {decoded_advance['amount']} of id {decoded_advance['token_id']} from token {asset_info['token']}")
+
+            rollup.emit_erc1155_single_voucher(asset_info['token'], msg_sender, decoded_advance['token_id'], decoded_advance['amount'])
+            logger.info("[app] Erc1155_single voucher emitted")
+            return True
+
+        if decoded_advance['type'] == 'ERC1155_BATCH_WITHDRAWAL':
+            account_info = ledger.retrieve_account(account=msg_sender)
+
+            for i in range(len(decoded_advance['token_ids'])):
+                asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_ids'][i])
+                ledger.withdraw(asset_info['asset_id'], account_info['account_id'], decoded_advance['amounts'][i])
+                logger.info(f"[app] {msg_sender} withdrew {decoded_advance['amounts'][i]} of id {decoded_advance['token_ids'][i]} from token {asset_info['token']}")
+
+            rollup.emit_erc1155_batch_voucher(asset_info['token'], msg_sender, decoded_advance['token_ids'], decoded_advance['amounts'])
+            logger.info("[app] Erc1155_batch voucher emitted")
+            return True
+
         if decoded_advance['type'] == 'ETHER_TRANSFER':
             account_info_from = ledger.retrieve_account(account=msg_sender)
             account_info_to = ledger.retrieve_account(account=decoded_advance['receiver'])
@@ -85,10 +156,41 @@ def handle_advance(rollup, ledger):
             logger.info(f"[app] {msg_sender} transfered to {account_info_to['account']} {decoded_advance['amount']} of token {asset_info['token']}")
             return True
 
+        if decoded_advance['type'] == 'ERC721_TRANSFER':
+            asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_id'])
+            account_info_from = ledger.retrieve_account(account=msg_sender)
+            account_info_to = ledger.retrieve_account(account=decoded_advance['receiver'])
+
+            ledger.transfer(asset_info['asset_id'], account_info_from['account_id'], account_info_to['account_id'], 1)
+            logger.info(f"[app] {msg_sender} transfered to {account_info_to['account']} id {decoded_advance['token_id']} from token {asset_info['token']}")
+            return True
+
+        if decoded_advance['type'] == 'ERC1155_SINGLE_TRANSFER':
+            asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_id'])
+            account_info_from = ledger.retrieve_account(account=msg_sender)
+            account_info_to = ledger.retrieve_account(account=decoded_advance['receiver'])
+
+            ledger.transfer(asset_info['asset_id'], account_info_from['account_id'], account_info_to['account_id'], decoded_advance['amount'])
+            logger.info(f"[app] {msg_sender} transfered to {account_info_to['account']} {decoded_advance['amount']} of id {decoded_advance['token_id']} from token {asset_info['token']}")
+            return True
+
+        if decoded_advance['type'] == 'ERC1155_BATCH_TRANSFER':
+            account_info_from = ledger.retrieve_account(account=msg_sender)
+            account_info_to = ledger.retrieve_account(account=decoded_advance['receiver'])
+
+            for i in range(len(decoded_advance['token_ids'])):
+                asset_info = ledger.retrieve_asset(token=decoded_advance['token'],token_id=decoded_advance['token_ids'][i])
+
+                ledger.transfer(asset_info['asset_id'], account_info_from['account_id'], account_info_to['account_id'], decoded_advance['amounts'][i])
+                logger.info(f"[app] {msg_sender} transfered to {account_info_to['account']} {decoded_advance['amounts'][i]} of id {decoded_advance['token_ids'][i]} from token {asset_info['token']}")
+            return True
+
         logger.info("[app] unidentified wallet input")
         return False
     except Exception as e:
         logger.error(f"[app] Failed to process advance: {e}")
+        logger.error(traceback.format_exc())
+        return False
 
     logger.info("[app] non valid wallet input")
     return False

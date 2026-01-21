@@ -30,7 +30,7 @@ cdef class Rollup:
         err = libcmt.cmt_rollup_read_advance_state(self._c_rollup, input)
         if err != 0:
             raise Exception(f"Failed to read advance ({err})")
-        app_address = &input[0].app_contract
+        self.app_address = &input[0].app_contract
         payload = input[0].payload.data[:input[0].payload.length]
         app_contract = input[0].app_contract.data[:libcmt.CMT_ABI_ADDRESS_LENGTH]
         msg_sender = input[0].msg_sender.data[:libcmt.CMT_ABI_ADDRESS_LENGTH]
@@ -140,10 +140,89 @@ cdef class Rollup:
         voucher[0].payload.length = sizeof(voucher_payload_buffer)
         err = libcma.cma_parser_encode_voucher(libcma.CMA_PARSER_VOUCHER_TYPE_ERC20, self.app_address, voucher_req, voucher)
         if err != 0:
-            raise Exception(f"Failed to encode ether voucher ({err} - {libcma.cma_parser_get_last_error_message()})")
+            raise Exception(f"Failed to encode erc20 voucher ({err} - {libcma.cma_parser_get_last_error_message()})")
         self.emit_voucher("0x" + voucher[0].address.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
             int.from_bytes(voucher[0].value.data[:libcmt.CMT_ABI_U256_LENGTH]),
             voucher[0].payload.data[:voucher[0].payload.length])
+
+    cpdef emit_erc721_voucher(self, str token, str receiver, object token_id):
+        if receiver.startswith("0x"):
+            receiver = receiver[2:]
+        if token.startswith("0x"):
+            token = token[2:]
+        cdef libcma.cma_parser_voucher_data_t voucher_req[1]
+        voucher_req[0].receiver.data = bytes.fromhex(receiver[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        voucher_req[0].erc721.token.data = bytes.fromhex(token[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        voucher_req[0].erc721.token_id.data = bytes.fromhex(f"{token_id:064x}")[:libcmt.CMT_ABI_U256_LENGTH]
+        cdef uint8_t voucher_payload_buffer[libcma.CMA_PARSER_ERC721_VOUCHER_PAYLOAD_SIZE]
+        cdef libcma.cma_voucher_t voucher[1]
+        voucher[0].payload.data = voucher_payload_buffer
+        voucher[0].payload.length = sizeof(voucher_payload_buffer)
+        err = libcma.cma_parser_encode_voucher(libcma.CMA_PARSER_VOUCHER_TYPE_ERC721, self.app_address, voucher_req, voucher)
+        if err != 0:
+            raise Exception(f"Failed to encode erc721 voucher ({err} - {libcma.cma_parser_get_last_error_message()})")
+        self.emit_voucher("0x" + voucher[0].address.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            int.from_bytes(voucher[0].value.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            voucher[0].payload.data[:voucher[0].payload.length])
+
+    cpdef emit_erc1155_single_voucher(self, str token, str receiver, object token_id, object amount):
+        if receiver.startswith("0x"):
+            receiver = receiver[2:]
+        if token.startswith("0x"):
+            token = token[2:]
+        cdef libcma.cma_parser_voucher_data_t voucher_req[1]
+        voucher_req[0].receiver.data = bytes.fromhex(receiver[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        voucher_req[0].erc1155_single.token.data = bytes.fromhex(token[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        voucher_req[0].erc1155_single.token_id.data = bytes.fromhex(f"{token_id:064x}")[:libcmt.CMT_ABI_U256_LENGTH]
+        voucher_req[0].erc1155_single.amount.data = bytes.fromhex(f"{amount:064x}")[:libcmt.CMT_ABI_U256_LENGTH]
+        voucher_req[0].erc1155_single.exec_layer_data.length = 0
+        voucher_req[0].erc1155_single.exec_layer_data.data = NULL
+        cdef uint8_t voucher_payload_buffer[libcma.CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE]
+        cdef libcma.cma_voucher_t voucher[1]
+        voucher[0].payload.data = voucher_payload_buffer
+        voucher[0].payload.length = sizeof(voucher_payload_buffer)
+        err = libcma.cma_parser_encode_voucher(libcma.CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, self.app_address, voucher_req, voucher)
+        if err != 0:
+            raise Exception(f"Failed to encode erc1155_single voucher ({err} - {libcma.cma_parser_get_last_error_message()})")
+        self.emit_voucher("0x" + voucher[0].address.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            int.from_bytes(voucher[0].value.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            voucher[0].payload.data[:voucher[0].payload.length])
+
+    cpdef emit_erc1155_batch_voucher(self, str token, str receiver, object token_ids, object amounts):
+        if receiver.startswith("0x"):
+            receiver = receiver[2:]
+        if token.startswith("0x"):
+            token = token[2:]
+        cdef libcma.cma_parser_voucher_data_t voucher_req[1]
+        voucher_req[0].receiver.data = bytes.fromhex(receiver[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        voucher_req[0].erc1155_batch.token.data = bytes.fromhex(token[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
+        token_ids_p = b"".join([bytes.fromhex(f"{token_id:064x}")[:libcmt.CMT_ABI_U256_LENGTH] for token_id in token_ids])
+        cdef const uint8_t *token_ids_bytes = token_ids_p
+        cdef libcma.cma_abi_u256_data *token_ids_ptr = <libcma.cma_abi_u256_data *>token_ids_bytes
+        amounts_p = b"".join([bytes.fromhex(f"{amount:064x}")[:libcmt.CMT_ABI_U256_LENGTH] for amount in amounts])
+        cdef const uint8_t *amounts_bytes = amounts_p
+        cdef libcma.cma_abi_u256_data *amounts_ptr = <libcma.cma_abi_u256_data *>amounts_bytes
+        voucher_req[0].erc1155_batch.token_ids.length = len(token_ids)
+        voucher_req[0].erc1155_batch.token_ids.data = token_ids_ptr
+        voucher_req[0].erc1155_batch.amounts.length = len(amounts)
+        voucher_req[0].erc1155_batch.amounts.data = amounts_ptr
+        voucher_req[0].erc1155_batch.exec_layer_data.length = 0
+        voucher_req[0].erc1155_batch.exec_layer_data.data = NULL
+        payload_size = libcma.CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE + 2 * len(token_ids) * libcmt.CMT_ABI_U256_LENGTH
+        cdef uint8_t *voucher_payload_buffer = <uint8_t *>malloc(payload_size * sizeof(uint8_t))
+        if not voucher_payload_buffer:
+            raise Exception(f"Error allocating voucher payload buffer ")
+        cdef libcma.cma_voucher_t voucher[1]
+        voucher[0].payload.data = voucher_payload_buffer
+        voucher[0].payload.length = payload_size
+        err = libcma.cma_parser_encode_voucher(libcma.CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, self.app_address, voucher_req, voucher)
+        if err != 0:
+            raise Exception(f"Failed to encode erc1155_batch voucher ({err} - {libcma.cma_parser_get_last_error_message()})")
+        self.emit_voucher("0x" + voucher[0].address.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            int.from_bytes(voucher[0].value.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            voucher[0].payload.data[:voucher[0].payload.length])
+        # free(voucher_payload_buffer)
+        # voucher_payload_buffer = NULL
 
 cpdef object decode_ether_deposit(dict input):
     cdef libcmt.cmt_rollup_advance_t input_ptr[1]
@@ -176,6 +255,62 @@ cpdef object decode_erc20_deposit(dict input):
     }
     return ret
 
+cpdef object decode_erc721_deposit(dict input):
+    cdef libcmt.cmt_rollup_advance_t input_ptr[1]
+    input_ptr[0].payload.data = input['payload']['data']
+    input_ptr[0].payload.length = input['payload']['length']
+    cdef libcma.cma_parser_input_t parser_input[1]
+    err = libcma.cma_parser_decode_advance(libcma.CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, input_ptr, parser_input);
+    if err != 0:
+        raise Exception(f"Failed to decode erc721 deposit ({err} - {libcma.cma_parser_get_last_error_message()})")
+    ret = {
+        "sender": "0x" + parser_input[0].erc721_deposit.sender.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token": "0x" + parser_input[0].erc721_deposit.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token_id": int.from_bytes(parser_input[0].erc721_deposit.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+        "exec_layer_data": parser_input[0].erc721_deposit.exec_layer_data.data[:parser_input[0].erc721_deposit.exec_layer_data.length]
+    }
+    return ret
+
+cpdef object decode_erc1155_single_deposit(dict input):
+    cdef libcmt.cmt_rollup_advance_t input_ptr[1]
+    input_ptr[0].payload.data = input['payload']['data']
+    input_ptr[0].payload.length = input['payload']['length']
+    cdef libcma.cma_parser_input_t parser_input[1]
+    err = libcma.cma_parser_decode_advance(libcma.CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, input_ptr, parser_input);
+    if err != 0:
+        raise Exception(f"Failed to decode erc1155_single deposit ({err} - {libcma.cma_parser_get_last_error_message()})")
+    ret = {
+        "sender": "0x" + parser_input[0].erc1155_single_deposit.sender.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token": "0x" + parser_input[0].erc1155_single_deposit.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token_id": int.from_bytes(parser_input[0].erc1155_single_deposit.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+        "amount": int.from_bytes(parser_input[0].erc1155_single_deposit.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
+        "exec_layer_data": parser_input[0].erc1155_single_deposit.exec_layer_data.data[:parser_input[0].erc1155_single_deposit.exec_layer_data.length]
+    }
+    return ret
+
+cpdef object decode_erc1155_batch_deposit(dict input):
+    cdef libcmt.cmt_rollup_advance_t input_ptr[1]
+    input_ptr[0].payload.data = input['payload']['data']
+    input_ptr[0].payload.length = input['payload']['length']
+    cdef libcma.cma_parser_input_t parser_input[1]
+    err = libcma.cma_parser_decode_advance(libcma.CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, input_ptr, parser_input);
+    token_ids = []
+    for i in range(parser_input[0].erc1155_batch_deposit.token_ids.length):
+        token_ids.append(int.from_bytes(parser_input[0].erc1155_batch_deposit.token_ids.data[i][:libcmt.CMT_ABI_U256_LENGTH]))
+    amounts = []
+    for i in range(parser_input[0].erc1155_batch_deposit.amounts.length):
+        amounts.append(int.from_bytes(parser_input[0].erc1155_batch_deposit.amounts.data[i][:libcmt.CMT_ABI_U256_LENGTH]))
+    if err != 0:
+        raise Exception(f"Failed to decode erc1155_batch deposit ({err} - {libcma.cma_parser_get_last_error_message()})")
+    ret = {
+        "sender": "0x" + parser_input[0].erc1155_batch_deposit.sender.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token": "0x" + parser_input[0].erc1155_batch_deposit.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+        "token_ids": token_ids,
+        "amounts": amounts,
+        "exec_layer_data": parser_input[0].erc1155_batch_deposit.exec_layer_data.data[:parser_input[0].erc1155_batch_deposit.exec_layer_data.length]
+    }
+    return ret
+
 cpdef object decode_advance(dict input):
     cdef libcmt.cmt_rollup_advance_t input_ptr[1]
     input_ptr[0].msg_sender.data = input['msg_sender']
@@ -198,6 +333,29 @@ cpdef object decode_advance(dict input):
             "amount": int.from_bytes(parser_input[0].erc20_withdrawal.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
             "exec_layer_data": parser_input[0].erc20_withdrawal.exec_layer_data.data[:parser_input[0].erc20_withdrawal.exec_layer_data.length]
         }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC721_WITHDRAWAL:
+        ret = {
+            "type": "ERC721_WITHDRAWAL",
+            "token": "0x" + parser_input[0].erc721_withdrawal.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_id": int.from_bytes(parser_input[0].erc721_withdrawal.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "exec_layer_data": parser_input[0].erc721_withdrawal.exec_layer_data.data[:parser_input[0].erc721_withdrawal.exec_layer_data.length]
+        }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_WITHDRAWAL:
+        ret = {
+            "type": "ERC1155_SINGLE_WITHDRAWAL",
+            "token": "0x" + parser_input[0].erc1155_single_withdrawal.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_id": int.from_bytes(parser_input[0].erc1155_single_withdrawal.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "amount": int.from_bytes(parser_input[0].erc1155_single_withdrawal.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "exec_layer_data": parser_input[0].erc1155_single_withdrawal.exec_layer_data.data[:parser_input[0].erc1155_single_withdrawal.exec_layer_data.length]
+        }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_WITHDRAWAL:
+        ret = {
+            "type": "ERC1155_BATCH_WITHDRAWAL",
+            "token": "0x" + parser_input[0].erc1155_batch_withdrawal.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_ids": [int.from_bytes(parser_input[0].erc1155_batch_withdrawal.token_ids.data[i][:libcmt.CMT_ABI_U256_LENGTH]) for i in range(parser_input[0].erc1155_batch_withdrawal.token_ids.length)],
+            "amounts": [int.from_bytes(parser_input[0].erc1155_batch_withdrawal.amounts.data[i][:libcmt.CMT_ABI_U256_LENGTH]) for i in range(parser_input[0].erc1155_batch_withdrawal.amounts.length)],
+            "exec_layer_data": parser_input[0].erc1155_batch_withdrawal.exec_layer_data.data[:parser_input[0].erc1155_batch_withdrawal.exec_layer_data.length]
+        }
     elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ETHER_TRANSFER:
         ret = {
             "type": "ETHER_TRANSFER",
@@ -212,6 +370,32 @@ cpdef object decode_advance(dict input):
             "token": "0x" + parser_input[0].erc20_transfer.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
             "amount": int.from_bytes(parser_input[0].erc20_transfer.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
             "exec_layer_data": parser_input[0].erc20_transfer.exec_layer_data.data[:parser_input[0].erc20_transfer.exec_layer_data.length]
+        }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC721_TRANSFER:
+        ret = {
+            "type": "ERC721_TRANSFER",
+            "receiver": "0x" + parser_input[0].erc721_transfer.receiver.data[:libcmt.CMT_ABI_U256_LENGTH].hex(),
+            "token": "0x" + parser_input[0].erc721_transfer.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_id": int.from_bytes(parser_input[0].erc721_transfer.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "exec_layer_data": parser_input[0].erc721_transfer.exec_layer_data.data[:parser_input[0].erc721_transfer.exec_layer_data.length]
+        }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_TRANSFER:
+        ret = {
+            "type": "ERC1155_SINGLE_TRANSFER",
+            "receiver": "0x" + parser_input[0].erc1155_single_transfer.receiver.data[:libcmt.CMT_ABI_U256_LENGTH].hex(),
+            "token": "0x" + parser_input[0].erc1155_single_transfer.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_id": int.from_bytes(parser_input[0].erc1155_single_transfer.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "amount": int.from_bytes(parser_input[0].erc1155_single_transfer.amount.data[:libcmt.CMT_ABI_U256_LENGTH]),
+            "exec_layer_data": parser_input[0].erc1155_single_transfer.exec_layer_data.data[:parser_input[0].erc1155_single_transfer.exec_layer_data.length]
+        }
+    elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_TRANSFER:
+        ret = {
+            "type": "ERC1155_BATCH_TRANSFER",
+            "receiver": "0x" + parser_input[0].erc1155_batch_transfer.receiver.data[:libcmt.CMT_ABI_U256_LENGTH].hex(),
+            "token": "0x" + parser_input[0].erc1155_batch_transfer.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
+            "token_ids": [int.from_bytes(parser_input[0].erc1155_batch_transfer.token_ids.data[i][:libcmt.CMT_ABI_U256_LENGTH]) for i in range(parser_input[0].erc1155_batch_transfer.token_ids.length)],
+            "amounts": [int.from_bytes(parser_input[0].erc1155_batch_transfer.amounts.data[i][:libcmt.CMT_ABI_U256_LENGTH]) for i in range(parser_input[0].erc1155_batch_transfer.amounts.length)],
+            "exec_layer_data": parser_input[0].erc1155_batch_transfer.exec_layer_data.data[:parser_input[0].erc1155_batch_transfer.exec_layer_data.length]
         }
     else:
         raise Exception(f"Unknown input type ({parser_input[0].type})")
@@ -246,7 +430,7 @@ cpdef object decode_inspect(dict input):
             "type": "BALANCE",
             "account": "0x" + parser_input[0].balance.account.data[:libcmt.CMT_ABI_U256_LENGTH].hex(),
             "token": "0x" + parser_input[0].balance.token.data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex(),
-            "token_id": int.from_bytes(parser_input[0].balance.token_id[:libcmt.CMT_ABI_U256_LENGTH].data),
+            "token_id": int.from_bytes(parser_input[0].balance.token_id.data[:libcmt.CMT_ABI_U256_LENGTH]),
             "exec_layer_data": parser_input[0].balance.exec_layer_data.data[:parser_input[0].balance.exec_layer_data.length] if parser_input[0].balance.exec_layer_data.length > 0 else None
         }
     elif parser_input[0].type == libcma.CMA_PARSER_INPUT_TYPE_SUPPLY:
@@ -303,9 +487,7 @@ cdef class Ledger:
             asset_type[0] = libcma.CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS
             ltok[0].data = bytes.fromhex(token[:(2*libcmt.CMT_ABI_ADDRESS_LENGTH)])[:libcmt.CMT_ABI_ADDRESS_LENGTH]
             if token_id is not None:
-                if token_id.startswith("0x"):
-                    token_id = token_id[2:]
-                ltokid[0].data = bytes.fromhex(token_id[:(2*libcmt.CMT_ABI_U256_LENGTH)])[:libcmt.CMT_ABI_U256_LENGTH]
+                ltokid[0].data = bytes.fromhex(f"{token_id:064x}")[:libcmt.CMT_ABI_U256_LENGTH]
                 asset_type[0] = libcma.CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID
         else:
             operation = libcma.CMA_LEDGER_OP_CREATE
@@ -317,7 +499,8 @@ cdef class Ledger:
         if asset_type[0] == libcma.CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS:
             token_str = "0x" + ltok[0].data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex()
         elif asset_type[0] == libcma.CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID:
-            token_id_str = int.from_bytes(ltokid[0].data.hex()[:libcmt.CMT_ABI_U256_LENGTH])
+            token_str = "0x" + ltok[0].data[:libcmt.CMT_ABI_ADDRESS_LENGTH].hex()
+            token_id_str = int.from_bytes(ltokid[0].data[:libcmt.CMT_ABI_U256_LENGTH])
         return {
             "asset_id": lassid[0],
             "token": token_str,

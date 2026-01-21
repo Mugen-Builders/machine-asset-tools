@@ -119,7 +119,7 @@ int cma_abi_get_uint256_list_d(const cmt_buf_t *start, cmt_buf_t *offset_buf, si
     if (rc) {
         return rc;
     }
-    *n = cmt_buf_length(bytes)/CMA_ABI_U256_LENGTH;
+    *n = cmt_buf_length(bytes) / CMA_ABI_U256_LENGTH;
     *uints = reinterpret_cast<cma_abi_u256_data *>(bytes->begin);
     return 0;
 }
@@ -155,7 +155,8 @@ int cma_abi_reserve_uints_d(cmt_buf_t *me, cmt_buf_t *of, size_t n, cmt_buf_t *o
     return 0;
 }
 
-int cma_abi_put_uint256_list_d(cmt_buf_t *me, cmt_buf_t *offset, const cmt_buf_t *frame, const cma_abi_u256_list_t *payload) {
+int cma_abi_put_uint256_list_d(cmt_buf_t *me, cmt_buf_t *offset, const cmt_buf_t *frame,
+    const cma_abi_u256_list_t *payload) {
     cmt_buf_t res_data = {};
     cmt_buf_t *res = &res_data;
     int rc = cma_abi_reserve_uints_d(me, offset, payload->length, res, frame->begin);
@@ -588,8 +589,7 @@ void cma_parser_decode_erc1155_batch_deposit(const cmt_rollup_advance_t &input, 
         throw CmaException("Error getting base bytes", err);
     }
 
-    if (parser_input.erc1155_batch_deposit.token_ids.length !=
-        parser_input.erc1155_batch_deposit.amounts.length) {
+    if (parser_input.erc1155_batch_deposit.token_ids.length != parser_input.erc1155_batch_deposit.amounts.length) {
         throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
     }
 
@@ -1060,8 +1060,7 @@ void cma_parser_decode_erc1155_batch_transfer(const cmt_rollup_advance_t &input,
         throw CmaException("Error getting base bytes", err);
     }
 
-    if (parser_input.erc1155_batch_transfer.token_ids.length !=
-        parser_input.erc1155_batch_transfer.amounts.length) {
+    if (parser_input.erc1155_batch_transfer.token_ids.length != parser_input.erc1155_batch_transfer.amounts.length) {
         throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
     }
 
@@ -1195,10 +1194,10 @@ auto cma_parser_encode_erc20_voucher(const cma_parser_voucher_data_t &voucher_re
     if (err != 0) {
         throw CmaException("Error putting amount", err);
     }
-
 }
 
-auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
+auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
     // 1: check sizes of voucher struct
     if (voucher.payload.data == nullptr) {
         throw CmaException("Invalid voucher payload buffer", -ENOBUFS);
@@ -1246,12 +1245,14 @@ auto cma_parser_encode_erc721_voucher(const cma_abi_address_t &app_address, cons
     }
 }
 
-auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
+auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
     // 1: check sizes of voucher struct
     if (voucher.payload.data == nullptr) {
         throw CmaException("Invalid voucher payload buffer", -ENOBUFS);
     }
-    if (voucher.payload.length < CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE) {
+    if (voucher.payload.length < CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE +
+        (voucher_request.erc1155_single.exec_layer_data.length/CMA_ABI_U256_LENGTH + (voucher_request.erc1155_single.exec_layer_data.length%CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) * CMA_ABI_U256_LENGTH) {
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 
@@ -1320,17 +1321,19 @@ auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_addre
     }
 }
 
-auto cma_parser_encode_erc1155_batch_voucher(const cma_abi_address_t &app_address, const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
+auto cma_parser_encode_erc1155_batch_voucher(const cma_abi_address_t &app_address,
+    const cma_parser_voucher_data_t &voucher_request, cma_voucher_t &voucher) -> void {
     // 1: check sizes of voucher struct
+    if (voucher_request.erc1155_batch.token_ids.length != voucher_request.erc1155_batch.amounts.length) {
+        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
+    }
     if (voucher.payload.data == nullptr) {
         throw CmaException("Invalid voucher payload buffer", -ENOBUFS);
     }
-    if (voucher.payload.length < CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE) {
+    if (voucher.payload.length < CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE +
+            2 * voucher_request.erc1155_batch.token_ids.length + CMA_ABI_U256_LENGTH +
+            (voucher_request.erc1155_batch.exec_layer_data.length/CMA_ABI_U256_LENGTH + (voucher_request.erc1155_batch.exec_layer_data.length%CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) * CMA_ABI_U256_LENGTH) {
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
-    }
-    if (voucher_request.erc1155_batch.token_ids.length !=
-        voucher_request.erc1155_batch.amounts.length) {
-        throw CmaException("Mismatched token ids and amounts lengths", -EINVAL);
     }
 
     const std::span token_span(voucher_request.erc1155_batch.token.data);

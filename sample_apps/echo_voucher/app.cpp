@@ -14,15 +14,11 @@ extern "C" {
 #include <libcma/parser.h>
 }
 
-// 0xc70076a466789B595b50959cdc261227F0D70051
-#define CONFIG_ETHER_PORTAL_ADDRESS                                                                                    \
-    {0xc7, 0x00, 0x76, 0xa4, 0x66, 0x78, 0x9B, 0x59, 0x5b, 0x50, 0x95, 0x9c, 0xdc, 0x26, 0x12, 0x27, 0xF0, 0xD7, 0x00, \
-        0x51}
-
-// 0xc700D6aDd016eECd59d989C028214Eaa0fCC0051
-#define CONFIG_ERC20_PORTAL_ADDRESS                                                                                    \
-    {0xc7, 0x00, 0xD6, 0xaD, 0xd0, 0x16, 0xeE, 0xCd, 0x59, 0xd9, 0x89, 0xC0, 0x28, 0x21, 0x4E, 0xaa, 0x0f, 0xCC, 0x00, \
-        0x51}
+#define CONFIG_ETHER_PORTAL_ADDRESS {0xa6, 0x32, 0xc5, 0xc0, 0x58, 0x12, 0xc6, 0xa6, 0x14, 0x9b, 0x7a, 0xf5, 0xc5, 0x61, 0x17, 0xd1, 0xd2, 0x60, 0x38, 0x28}
+#define CONFIG_ERC20_PORTAL_ADDRESS {0xac, 0xa6, 0x58, 0x6a, 0xc, 0xf0, 0x5b, 0xd8, 0x31, 0xf2, 0x50, 0x1e, 0x7b, 0x4a, 0xea, 0x55, 0xd, 0xa6, 0x56, 0x2d}
+#define CONFIG_ERC721_PORTAL_ADDRESS {0x9e, 0x88, 0x51, 0xda, 0xdb, 0x2b, 0x77, 0x10, 0x39, 0x28, 0x51, 0x88, 0x46, 0xc4, 0x67, 0x8d, 0x48, 0xb5, 0xe3, 0x71}
+#define CONFIG_ERC1155_SINGLE_PORTAL_ADDRESS {0x18, 0x55, 0x83, 0x98, 0xdd, 0x1a, 0x8c, 0xe2, 0x9, 0x56, 0x28, 0x7a, 0x4d, 0xa7, 0xb7, 0x6a, 0xe7, 0xa9, 0x66, 0x62}
+#define CONFIG_ERC1155_BATCH_PORTAL_ADDRESS {0xe2, 0x46, 0xab, 0xb9, 0x74, 0xb3, 0x7, 0x49, 0xd, 0x9c, 0x69, 0x32, 0xf4, 0x8e, 0xbe, 0x79, 0xde, 0x72, 0x33, 0x8a}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Abi utilities.
@@ -109,6 +105,9 @@ auto rollup_process_next_request(cmt_rollup_t *rollup, ADVANCE_STATE advance_sta
 
 constexpr cmt_abi_address_t ETHER_PORTAL_ADDRESS = {CONFIG_ETHER_PORTAL_ADDRESS};
 constexpr cmt_abi_address_t ERC20_PORTAL_ADDRESS = {CONFIG_ERC20_PORTAL_ADDRESS};
+constexpr cmt_abi_address_t ERC721_PORTAL_ADDRESS = {CONFIG_ERC721_PORTAL_ADDRESS};
+constexpr cmt_abi_address_t ERC1155_SINGLE_PORTAL_ADDRESS = {CONFIG_ERC1155_SINGLE_PORTAL_ADDRESS};
+constexpr cmt_abi_address_t ERC1155_BATCH_PORTAL_ADDRESS = {CONFIG_ERC1155_BATCH_PORTAL_ADDRESS};
 
 // reports.
 struct [[gnu::packed]] error_report {
@@ -126,8 +125,9 @@ auto inspect_state(cmt_rollup_t *rollup) -> bool {
     std::ignore = std::fprintf(stdout, "[app] inspect request with size %zu\n", input.payload.length);
 
     std::ignore = std::fprintf(stderr, "[app] inspect ignored\n");
-    return false;
+    return true;
 }
+
 // Process advance state requests
 auto advance_state(cmt_rollup_t *rollup) -> bool {
     // Read the input.
@@ -135,9 +135,6 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
     cmt_rollup_advance_t input{};
     int err = cmt_rollup_read_advance_state(rollup, &input);
     if (err < 0) {
-        // std::ignore = std::fprintf(stderr, "[app] unable to read advance state: %s\n", std::strerror(-err));
-        // std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
-        // return true; // No reverts
         std::ignore =
             std::fprintf(stderr, "[app] unable to read advance state: %s\n", std::strerror(-err));
         std::ignore = std::fprintf(stderr, "[app] forcing exit\n");
@@ -156,7 +153,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to decode ether deposit: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{err});
-            return true; // No reverts
+            return false;
         }
 
         // encode voucher
@@ -173,7 +170,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to encode ether voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{err});
-            return true; // No reverts
+            return false;
         }
 
         // send voucher
@@ -181,7 +178,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to emit ether voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
-            return true; // No reverts
+            return false;
         }
         std::ignore = std::fprintf(stdout,"[app] voucher sent\n");
         return true;
@@ -197,7 +194,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to decode erc20 deposit: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{err});
-            return true; // No reverts
+            return false;
         }
 
         // encode voucher
@@ -217,7 +214,7 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to encode erc20 voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{err});
-            return true; // No reverts
+            return false;
         }
 
         // send voucher
@@ -225,16 +222,156 @@ auto advance_state(cmt_rollup_t *rollup) -> bool {
             std::ignore = std::fprintf(stderr, "[app] unable to emit erc20 voucher: %d - %s\n", -err,
                 cma_parser_get_last_error_message());
             std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
-            return true; // No reverts
+            return false;
         }
         std::ignore = std::fprintf(stdout,"[app] voucher sent\n");
+        return true;
+    }
+
+    // Erc721 Deposit?
+    if (input.msg_sender == ERC721_PORTAL_ADDRESS) {
+        std::ignore = std::fprintf(stdout,"[app] received erc721 deposit\n");
+        // decode deposit
+        cma_parser_input_t parser_input;
+        err = cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC721_DEPOSIT, &input, &parser_input);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to decode erc721 deposit: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{err});
+            return false;
+        }
+
+        // encode voucher
+        cma_parser_voucher_data_t voucher_req = {};
+        std::ignore =
+            std::copy_n(std::begin(parser_input.erc721_deposit.sender.data), CMA_ABI_ADDRESS_LENGTH, std::begin(voucher_req.receiver.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc721_deposit.token.data), CMA_ABI_ADDRESS_LENGTH,
+            std::begin(voucher_req.erc721.token.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc721_deposit.token_id.data), CMA_ABI_U256_LENGTH,
+            std::begin(voucher_req.erc721.token_id.data));
+
+        uint8_t erc721_payload[CMA_PARSER_ERC721_VOUCHER_PAYLOAD_SIZE];
+        cma_voucher_t voucher = {.payload = {.length = sizeof(erc721_payload), .data = erc721_payload}};
+
+        err = cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC721, &input.app_contract, &voucher_req, &voucher);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to encode erc721 voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+
+        // send voucher
+        if (!rollup_emit_voucher(rollup, voucher.address, voucher.value, voucher.payload)) {
+            std::ignore = std::fprintf(stderr, "[app] unable to emit erc721 voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+        std::ignore = std::fprintf(stdout,"[app] erc721 voucher sent\n");
+        return true;
+    }
+
+    // Erc1155 single Deposit?
+    if (input.msg_sender == ERC1155_SINGLE_PORTAL_ADDRESS) {
+        std::ignore = std::fprintf(stdout,"[app] received erc1155 single deposit\n");
+        // decode deposit
+        cma_parser_input_t parser_input;
+        err = cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_SINGLE_DEPOSIT, &input, &parser_input);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to decode erc1155 single deposit: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{err});
+            return false;
+        }
+
+        // encode voucher
+        cma_parser_voucher_data_t voucher_req = {};
+        std::ignore =
+            std::copy_n(std::begin(parser_input.erc1155_single_deposit.sender.data), CMA_ABI_ADDRESS_LENGTH, std::begin(voucher_req.receiver.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc1155_single_deposit.token.data), CMA_ABI_ADDRESS_LENGTH,
+            std::begin(voucher_req.erc1155_single.token.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc1155_single_deposit.token_id.data), CMA_ABI_U256_LENGTH,
+            std::begin(voucher_req.erc1155_single.token_id.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc1155_single_deposit.amount.data), CMA_ABI_U256_LENGTH,
+            std::begin(voucher_req.erc1155_single.amount.data));
+
+        uint8_t erc1155_single_payload[CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE];
+        cma_voucher_t voucher = {.payload = {.length = sizeof(erc1155_single_payload), .data = erc1155_single_payload}};
+
+        err = cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_SINGLE, &input.app_contract, &voucher_req, &voucher);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to encode erc1155_single voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+
+        // send voucher
+        if (!rollup_emit_voucher(rollup, voucher.address, voucher.value, voucher.payload)) {
+            std::ignore = std::fprintf(stderr, "[app] unable to emit erc1155_single voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+        std::ignore = std::fprintf(stdout,"[app] erc1155_single voucher sent\n");
+        return true;
+    }
+
+    // Erc1155 batch Deposit?
+    if (input.msg_sender == ERC1155_BATCH_PORTAL_ADDRESS) {
+        std::ignore = std::fprintf(stdout,"[app] received erc1155 batch deposit\n");
+        // decode deposit
+        cma_parser_input_t parser_input;
+        err = cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ERC1155_BATCH_DEPOSIT, &input, &parser_input);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to decode erc1155 batch deposit: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{err});
+            return false;
+        }
+
+        // encode voucher
+        cma_parser_voucher_data_t voucher_req = {};
+        std::ignore =
+            std::copy_n(std::begin(parser_input.erc1155_batch_deposit.sender.data), CMA_ABI_ADDRESS_LENGTH, std::begin(voucher_req.receiver.data));
+        std::ignore = std::copy_n(std::begin(parser_input.erc1155_batch_deposit.token.data), CMA_ABI_ADDRESS_LENGTH,
+            std::begin(voucher_req.erc1155_batch.token.data));
+        voucher_req.erc1155_batch.token_ids.length = parser_input.erc1155_batch_deposit.token_ids.length;
+        voucher_req.erc1155_batch.token_ids.data = parser_input.erc1155_batch_deposit.token_ids.data;
+        voucher_req.erc1155_batch.amounts.length = parser_input.erc1155_batch_deposit.amounts.length;
+        voucher_req.erc1155_batch.amounts.data = parser_input.erc1155_batch_deposit.amounts.data;
+
+        size_t payload_size = CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE +
+            2 * parser_input.erc1155_batch_deposit.token_ids.length * CMA_ABI_U256_LENGTH;
+        uint8_t *erc1155_batch_payload = new uint8_t[payload_size];
+        cma_voucher_t voucher = {.payload = {.length = payload_size, .data = erc1155_batch_payload}};
+
+        err = cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ERC1155_BATCH, &input.app_contract, &voucher_req, &voucher);
+        if (err < 0) {
+            std::ignore = std::fprintf(stderr, "[app] unable to encode erc1155_batch voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+
+        // send voucher
+        if (!rollup_emit_voucher(rollup, voucher.address, voucher.value, voucher.payload)) {
+            std::ignore = std::fprintf(stderr, "[app] unable to emit erc1155_batch voucher: %d - %s\n", -err,
+                cma_parser_get_last_error_message());
+            std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
+            return false;
+        }
+        std::ignore = std::fprintf(stdout,"[app] erc1155_batch voucher sent\n");
+        delete[] erc1155_batch_payload;
+        erc1155_batch_payload = nullptr;
         return true;
     }
 
     // Invalid request.
     std::ignore = std::fprintf(stderr, "[app] invalid advance state request\n");
     std::ignore = rollup_emit_report(rollup, error_report{-EINVAL});
-    return true; // No reverts
+    return false;
 }
 
 }; // anonymous namespace

@@ -1,10 +1,14 @@
 
 import logging
 import os
-from cmpy import Rollup, decode_ether_deposit, decode_erc20_deposit, decode_advance, decode_inspect
+from cmpy import Rollup, decode_advance, decode_inspect, decode_ether_deposit, decode_erc20_deposit, \
+    decode_erc721_deposit, decode_erc1155_single_deposit, decode_erc1155_batch_deposit
 
-ETHER_PORTAL_ADDRESS = '0xc70076a466789B595b50959cdc261227F0D70051'[2:].lower()
-ERC20_PORTAL_ADDRESS = '0xc700D6aDd016eECd59d989C028214Eaa0fCC0051'[2:].lower()
+ETHER_PORTAL_ADDRESS = "0xA632c5c05812c6a6149B7af5C56117d1D2603828"[2:].lower()
+ERC20_PORTAL_ADDRESS = "0xACA6586A0Cf05bD831f2501E7B4aea550dA6562D"[2:].lower()
+ERC721_PORTAL_ADDRESS = "0x9E8851dadb2b77103928518846c4678d48b5e371"[2:].lower()
+ERC1155_SINGLE_PORTAL_ADDRESS = "0x18558398Dd1a8cE20956287a4Da7B76aE7A96662"[2:].lower()
+ERC1155_BATCH_PORTAL_ADDRESS = "0xe246Abb974B307490d9C6932F48EbE79de72338A"[2:].lower()
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -12,7 +16,7 @@ logger = logging.getLogger(__name__)
 def handle_advance(rollup):
     advance = rollup.read_advance_state()
     msg_sender = advance['msg_sender'].hex().lower()
-    logger.info(f"Received advance request from {msg_sender=}")
+    logger.info(f"[app] Received advance request from {msg_sender=}")
 
     if msg_sender == ETHER_PORTAL_ADDRESS:
         deposit = decode_ether_deposit(advance)
@@ -28,6 +32,31 @@ def handle_advance(rollup):
 
         rollup.emit_erc20_voucher(deposit['token'], deposit['sender'], deposit['amount'])
         logger.info("[app] Erc20 voucher emitted")
+        return True
+
+    if msg_sender == ERC721_PORTAL_ADDRESS:
+        deposit = decode_erc721_deposit(advance)
+        logger.info(f"[app] ERC721 deposit decoded {deposit}")
+
+        rollup.emit_erc721_voucher(deposit['token'], deposit['sender'], deposit['token_id'])
+        logger.info("[app] Erc721 voucher emitted")
+        return True
+
+    if msg_sender == ERC1155_SINGLE_PORTAL_ADDRESS:
+        deposit = decode_erc1155_single_deposit(advance)
+        logger.info(f"[app] ERC1155_single deposit decoded {deposit}")
+
+        rollup.emit_erc1155_single_voucher(deposit['token'], deposit['sender'], deposit['token_id'], deposit['amount'])
+        logger.info("[app] Erc1155_single voucher emitted")
+        return True
+
+    if msg_sender == ERC1155_BATCH_PORTAL_ADDRESS:
+        logger.info(f"[app] ERC1155_batch deposit")
+        deposit = decode_erc1155_batch_deposit(advance)
+        logger.info(f"[app] ERC1155_batch deposit decoded {deposit}")
+
+        rollup.emit_erc1155_batch_voucher(deposit['token'], deposit['sender'], deposit['token_ids'], deposit['amounts'])
+        logger.info("[app] Erc1155_batch voucher emitted")
         return True
 
     try:
