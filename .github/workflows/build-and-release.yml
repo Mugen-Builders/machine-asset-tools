@@ -47,30 +47,35 @@ jobs:
       - name: Build Alpine
         run: |
           mkdir -p artifacts
-          make docker DOCKERFILE=alpine.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
-          make install DESTDIR=build/_install PREFIX=/usr
-          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
+          make docker DOCKERFILE=alpine.dockerfile ARGS="tar-files"
+          cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz
+          cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz
+          mkdir -p sample_apps/app_cython/.misc
+          build/_tar/machine-asset-tools* sample_apps/app_cython/.misc/.
+          docker build -f sample_apps/app_cython/alpine.dockerfile --platform=linux/riscv64 --target builder -t app_cython_alpine --build-arg MACHINE_ASSET_TOOLS_DEV_TAR=.misc/machine-asset-tools-dev.tar.gz --build-arg MACHINE_ASSET_TOOLS_TAR=.misc/machine-asset-tools.tar.gz sample_apps/app_cython
+          docker run -it --rm --platform=linux/riscv64 -v $PWD/artifacts:/mnt/artifacts app_cython_alpine cp /opt/build/app/cmpy/cmpy.cpython-313-riscv64-linux-musl.so /mnt/artifacts/.
           make clean
+          rm -rf sample_apps/app_cython/.misc
 
       - name: Build Ubuntu
         run: |
           mkdir -p artifacts
-          make docker DOCKERFILE=ubuntu.dockerfile ARGS="install-run DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz * && cd ../..
-          make docker DOCKERFILE=ubuntu.dockerfile ARGS="install DESTDIR=build/_install PREFIX=/usr"
-          cd build/_install && tar -czf ../../artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz * && cd ../..
-          make control VERSION=${{ env.VERSION }}
-          mkdir build/_install/DEBIAN
-          mv control build/_install/DEBIAN/
-          dpkg-deb -Zxz --root-owner-group --build build/_install artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
+          make docker DOCKERFILE=ubuntu.dockerfile ARGS="tar-files"
+          cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz
+          cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz
+          mkdir -p sample_apps/app_cython/.misc
+          build/_tar/machine-asset-tools* sample_apps/app_cython/.misc/.
+          docker build -f sample_apps/app_cython/ubuntu.dockerfile --platform=linux/riscv64 --target builder -t app_cython_ubuntu --build-arg MACHINE_ASSET_TOOLS_DEV_TAR=.misc/machine-asset-tools-dev.tar.gz --build-arg MACHINE_ASSET_TOOLS_TAR=.misc/machine-asset-tools.tar.gz sample_apps/app_cython
+          docker run -it --rm --platform=linux/riscv64 -v $PWD/artifacts:/mnt/artifacts app_cython_ubuntu cp /opt/build/app/cmpy/cmpy.cpython-313-riscv64-linux-gnu.so /mnt/artifacts/.
+          make clean
 
       - name: Create sha256sum files
         run: |
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/cmpy.cpython-313-riscv64-linux-musl.so > artifacts/cmpy.cpython-313-riscv64-linux-musl.so.sha256
+          sha256sum artifacts/cmpy.cpython-313-riscv64-linux-gnu.so > artifacts/cmpy.cpython-313-riscv64-linux-gnu.so.sha256
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

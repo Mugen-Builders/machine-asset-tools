@@ -7,3 +7,5 @@ compile_flags.txt
 !.github
 !.clang-format
 !.clang-tidy
+
+__pycache__

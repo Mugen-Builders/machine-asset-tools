@@ -54,6 +54,14 @@ cdef extern from "/usr/include/libcma/parser.h":
         CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE,
         CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE,
 
+    ctypedef uint8_t cma_abi_u256_data[CMT_ABI_U256_LENGTH]
+
+    ctypedef struct cma_abi_u256_list_t:
+        size_t length
+        cma_abi_u256_data *data
+    ctypedef cma_abi_u256_list_t cma_amounts_t
+    ctypedef cma_abi_u256_list_t cma_token_ids_t
+
     ctypedef struct cma_parser_ether_deposit_t:
         cma_abi_address_t sender
         cma_amount_t amount
@@ -63,25 +71,26 @@ cdef extern from "/usr/include/libcma/parser.h":
         cma_token_address_t token
         cma_amount_t amount
         cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc721_deposit_t:
-    #     cma_abi_address_t sender
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_single_deposit_t:
-    #     cma_abi_address_t sender
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_amount_t amount
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_batch_deposit_t:
-    #     cma_abi_address_t sender
-    #     cma_token_address_t token
-    #     size_t count
-    #     cma_token_id_t *token_ids
-    #     cma_amount_t *amounts
-    #     cma_abi_bytes_t base_layer_data
-    #     cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc721_deposit_t:
+        cma_abi_address_t sender
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_abi_bytes_t base_layer_data
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_single_deposit_t:
+        cma_abi_address_t sender
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_amount_t amount
+        cma_abi_bytes_t base_layer_data
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_batch_deposit_t:
+        cma_abi_address_t sender
+        cma_token_address_t token
+        cma_token_ids_t token_ids
+        cma_amounts_t amounts
+        cma_abi_bytes_t base_layer_data
+        cma_abi_bytes_t exec_layer_data
     ctypedef struct cma_parser_ether_withdrawal_t:
         cma_amount_t amount
         cma_abi_bytes_t exec_layer_data
@@ -89,21 +98,20 @@ cdef extern from "/usr/include/libcma/parser.h":
         cma_token_address_t token
         cma_amount_t amount
         cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc721_withdrawal_t:
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_single_withdrawal_t:
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_amount_t amount
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_batch_withdrawal_t:
-    #     cma_token_address_t token
-    #     size_t count
-    #     cma_token_id_t *token_ids
-    #     cma_amount_t *amounts
-    #     cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc721_withdrawal_t:
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_single_withdrawal_t:
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_amount_t amount
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_batch_withdrawal_t:
+        cma_token_address_t token
+        cma_token_ids_t token_ids
+        cma_amounts_t amounts
+        cma_abi_bytes_t exec_layer_data
     ctypedef struct cma_parser_ether_transfer_t:
         cma_account_id_t receiver
         cma_amount_t amount
@@ -113,24 +121,23 @@ cdef extern from "/usr/include/libcma/parser.h":
         cma_token_address_t token
         cma_amount_t amount
         cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc721_transfer_t:
-    #     cma_account_id_t receiver
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_single_transfer_t:
-    #     cma_account_id_t receiver
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_amount_t amount
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_batch_transfer_t:
-    #     cma_account_id_t receiver
-    #     cma_token_address_t token
-    #     size_t count
-    #     cma_token_id_t *token_ids
-    #     cma_amount_t *amounts
-    #     cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc721_transfer_t:
+        cma_account_id_t receiver
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_single_transfer_t:
+        cma_account_id_t receiver
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_amount_t amount
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_batch_transfer_t:
+        cma_account_id_t receiver
+        cma_token_address_t token
+        cma_token_ids_t token_ids
+        cma_amounts_t amounts
+        cma_abi_bytes_t exec_layer_data
     ctypedef struct cma_parser_balance_t:
         cma_account_id_t account
         cma_token_address_t token
@@ -144,19 +151,19 @@ cdef extern from "/usr/include/libcma/parser.h":
         cma_parser_input_type_t type
         cma_parser_ether_deposit_t ether_deposit
         cma_parser_erc20_deposit_t erc20_deposit
-        # cma_parser_erc721_deposit_t erc721_deposit
-        # cma_parser_erc1155_single_deposit_t erc1155_single_deposit
-        # cma_parser_erc1155_batch_deposit_t erc1155_batch_deposit
+        cma_parser_erc721_deposit_t erc721_deposit
+        cma_parser_erc1155_single_deposit_t erc1155_single_deposit
+        cma_parser_erc1155_batch_deposit_t erc1155_batch_deposit
         cma_parser_ether_withdrawal_t ether_withdrawal
         cma_parser_erc20_withdrawal_t erc20_withdrawal
-        # cma_parser_erc721_withdrawal_t erc721_withdrawal
-        # cma_parser_erc1155_single_withdrawal_t erc1155_single_withdrawal
-        # cma_parser_erc1155_batch_withdrawal_t erc1155_batch_withdrawal
+        cma_parser_erc721_withdrawal_t erc721_withdrawal
+        cma_parser_erc1155_single_withdrawal_t erc1155_single_withdrawal
+        cma_parser_erc1155_batch_withdrawal_t erc1155_batch_withdrawal
         cma_parser_ether_transfer_t ether_transfer
         cma_parser_erc20_transfer_t erc20_transfer
-        # cma_parser_erc721_transfer_t erc721_transfer
-        # cma_parser_erc1155_single_transfer_t erc1155_single_transfer
-        # cma_parser_erc1155_batch_transfer_t erc1155_batch_transfer
+        cma_parser_erc721_transfer_t erc721_transfer
+        cma_parser_erc1155_single_transfer_t erc1155_single_transfer
+        cma_parser_erc1155_batch_transfer_t erc1155_batch_transfer
         cma_parser_balance_t balance
         cma_parser_supply_t supply
 
@@ -165,26 +172,26 @@ cdef extern from "/usr/include/libcma/parser.h":
     ctypedef struct cma_parser_erc20_voucher_fields_t:
         cma_token_address_t token
         cma_amount_t amount
-    # ctypedef struct cma_parser_erc721_voucher_fields_t:
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_abi_bytes_t exec_layer_data
-    # ctypedef struct cma_parser_erc1155_single_voucher_fields_t:
-    #     cma_token_address_t token
-    #     cma_token_id_t token_id
-    #     cma_amount_t amount
-    # ctypedef struct cma_parser_erc1155_batch_voucher_fields_t:
-    #     cma_token_address_t token
-    #     size_t count
-    #     cma_token_id_t *token_ids
-    #     cma_amount_t *amounts
+    ctypedef struct cma_parser_erc721_voucher_fields_t:
+        cma_token_address_t token
+        cma_token_id_t token_id
+    ctypedef struct cma_parser_erc1155_single_voucher_fields_t:
+        cma_token_address_t token
+        cma_token_id_t token_id
+        cma_amount_t amount
+        cma_abi_bytes_t exec_layer_data
+    ctypedef struct cma_parser_erc1155_batch_voucher_fields_t:
+        cma_token_address_t token
+        cma_token_ids_t token_ids
+        cma_amounts_t amounts
+        cma_abi_bytes_t exec_layer_data
     ctypedef struct cma_parser_voucher_data_t:
         cma_abi_address_t receiver
         cma_parser_ether_voucher_fields_t ether
         cma_parser_erc20_voucher_fields_t erc20
-        # cma_parser_erc721_voucher_fields_t erc721
-        # cma_parser_erc1155_single_voucher_fields_t erc1155_single
-        # cma_parser_erc1155_batch_voucher_fields_t erc1155_batch
+        cma_parser_erc721_voucher_fields_t erc721
+        cma_parser_erc1155_single_voucher_fields_t erc1155_single
+        cma_parser_erc1155_batch_voucher_fields_t erc1155_batch
     ctypedef struct cma_voucher_t:
         cmt_abi_address_t address
         cmt_abi_u256_t value
