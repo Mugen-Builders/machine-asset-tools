@@ -63,8 +63,8 @@ jobs:
         run: |
           mkdir -p artifacts
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="tar-files" VERSION=${{ env.VERSION }}
-          cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz
-          cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz
+          cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz
+          cp build/_tar/machine-asset-tools-dev.tar.gz artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz
           mkdir -p sample_apps/app_cython/.misc
           cp build/_tar/machine-asset-tools* sample_apps/app_cython/.misc/.
           docker build -f sample_apps/app_cython/ubuntu.dockerfile --platform=linux/riscv64 --target builder -t app_cython_ubuntu --build-arg MACHINE_ASSET_TOOLS_DEV_TAR=.misc/machine-asset-tools-dev.tar.gz --build-arg MACHINE_ASSET_TOOLS_TAR=.misc/machine-asset-tools.tar.gz --progress plain sample_apps/app_cython
@@ -75,6 +75,7 @@ jobs:
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
           sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
           sha256sum artifacts/cmpy.cpython-313-riscv64-linux-musl.so > artifacts/cmpy.cpython-313-riscv64-linux-musl.so.sha256
           sha256sum artifacts/cmpy.cpython-313-riscv64-linux-gnu.so > artifacts/cmpy.cpython-313-riscv64-linux-gnu.so.sha256
 
