@@ -4,6 +4,8 @@ MINOR := 1
 PATCH := 0
 LABEL :=
 VERSION ?= $(MAJOR).$(MINOR).$(PATCH)$(LABEL)
+TOOLS_DEB ?= build/_deb/machine-asset-tools_riscv64.deb
+TOOLS_TAR_NAME ?= build/_tar/machine-asset-tools
 
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
@@ -100,26 +102,34 @@ install-dev: $(libcma_LIB) build/ffi.h
 
 install: install-run install-dev
 
-tar-files: $(libcma_SO) $(libcma_LIB) build/ffi.h
-	mkdir -p build/_tar
-	rm -rf build/_install
-	mkdir -p build/_install/usr/lib
+tar-files-dev: PREFIX = /usr
+tar-files-dev: DESTDIR = ./build/_install
+tar-files-dev: install-dev
+	mkdir -p $(shell dirname ${TOOLS_TAR_NAME})
+	tar -czf ${TOOLS_TAR_NAME}-dev.tar.gz -C $(DESTDIR) .
 
-	cp -f $(libcma_SO) build/_install/usr/lib
-	cd build/_install && tar -czf ../_tar/machine-asset-tools.tar.gz *
+tar-files-run: PREFIX = /usr
+tar-files-run: DESTDIR = ./build/_install
+tar-files-run: install-run
+	mkdir -p $(shell dirname ${TOOLS_TAR_NAME})
+	tar -czf ${TOOLS_TAR_NAME}.tar.gz -C $(DESTDIR) .
 
-	mkdir -p build/_install/usr/lib
-	cp -f $(libcma_LIB) build/_install/usr/lib
-	mkdir -p build/_install/usr/include/libcma/
-	cp -f include/libcma/*.h build/_install/usr/include/libcma/
-	cp -f build/ffi.h build/_install/usr/include/libcma/
-	mkdir -p build/_install/usr/lib/pkgconfig
-	sed -e 's|@PREFIX@|/usr|g' -e 's|@ARG_VERSION@|$(VERSION)|g'\
-	    tools/libcma.pc.in > build/_install/usr/lib/pkgconfig/libcma.pc
-	cd build/_install && tar -czf ../_tar/machine-asset-tools-dev.tar.gz *
+tar-files: PREFIX = /usr
+tar-files: DESTDIR = ./build/_install
+tar-files: tar-files-run tar-files-dev
 
-control: tools/control.in
-	@sed 's|ARG_VERSION|$(VERSION)|g' tools/control.in > control
+control: build/control
+
+build/control: tools/control.in
+	@sed 's|ARG_VERSION|$(VERSION)|g' tools/control.in > build/control
+
+deb: PREFIX = /usr
+deb: DESTDIR = ./build/_install
+deb: control install
+	mkdir -p $(DESTDIR)/DEBIAN
+	mkdir -p $(shell dirname ${TOOLS_DEB})
+	cp build/control copyright $(DESTDIR)/DEBIAN/
+	dpkg-deb -Zxz --root-owner-group --build $(DESTDIR) ${TOOLS_DEB}
 
 #-------------------------------------------------------------------------------
 
@@ -230,5 +240,9 @@ distclean: clean
 
 OBJ := $(libcma_OBJ)
 
-.PHONY: install install-run install-dev
+.PHONY: all clean libcma install \
+	install-run install-dev tar-files control deb \
+	docker docker-image docker-shell \
+	test test-% control sample \
+	clangd-config format check-format lint
 -include $(OBJ:%.o=%.d)
