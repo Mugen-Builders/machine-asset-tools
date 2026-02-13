@@ -71,7 +71,7 @@ jobs:
       #     rm -rf sample_apps/app_cython/.misc
 
       - name: Build Deb
-        if: ${{ matrix.images.image }} == 'ubuntu'
+        if: ${{ matrix.images.image == 'ubuntu'}}
         run: |
           make docker DOCKERFILE=ubuntu.dockerfile ARGS="deb" VERSION=${{ env.VERSION }}
           cp build/_deb/machine-asset-tools_riscv64.deb artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
