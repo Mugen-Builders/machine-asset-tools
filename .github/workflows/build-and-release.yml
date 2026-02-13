@@ -23,12 +23,21 @@ jobs:
         run: |
           make docker ARGS="test"
 
-  release:
+  build-platforms:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build-and-test
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     images:
+    #       - image: ubuntu
+    #         plat: manylinux_2_39_riscv64
+    #       - image: alpine
+    #         plat: musllinux_1_2_riscv64
 
     steps:
       - name: Set Envs
@@ -72,15 +81,42 @@ jobs:
           docker build -f sample_apps/app_cython/ubuntu.dockerfile --platform=linux/riscv64 --target builder -t app_cython_ubuntu --build-arg MACHINE_ASSET_TOOLS_DEV_TAR=.misc/machine-asset-tools-dev.tar.gz --build-arg MACHINE_ASSET_TOOLS_TAR=.misc/machine-asset-tools.tar.gz --progress plain sample_apps/app_cython
           docker run --rm --platform=linux/riscv64 -v $PWD/artifacts:/mnt/artifacts -u $(id -u):$(id -g) app_cython_ubuntu cp /opt/build/app/cmpy/cmpy.cpython-313-riscv64-linux-gnu.so /mnt/artifacts/.
 
-      - name: Create sha256sum files
-        run: |
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
-          sha256sum artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb > artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb.sha256
-          sha256sum artifacts/cmpy.cpython-313-riscv64-linux-musl.so > artifacts/cmpy.cpython-313-riscv64-linux-musl.so.sha256
-          sha256sum artifacts/cmpy.cpython-313-riscv64-linux-gnu.so > artifacts/cmpy.cpython-313-riscv64-linux-gnu.so.sha256
+      # - name: Create sha256sum files
+      #   run: |
+      #     sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+      #     sha256sum artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_musl_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+      #     sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_v${{ env.VERSION }}.tar.gz.sha256
+      #     sha256sum artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz > artifacts/${{ env.TOOLS_TARGZ }}_glibc_riscv64_dev_v${{ env.VERSION }}.tar.gz.sha256
+      #     sha256sum artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb > artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb.sha256
+      #     sha256sum artifacts/cmpy.cpython-313-riscv64-linux-musl.so > artifacts/cmpy.cpython-313-riscv64-linux-musl.so.sha256
+      #     sha256sum artifacts/cmpy.cpython-313-riscv64-linux-gnu.so > artifacts/cmpy.cpython-313-riscv64-linux-gnu.so.sha256
+
+      #     - name: Upload Wheels
+      #       uses: actions/upload-artifact@v4
+      #       with:
+      #         name: pycmt-${{ matrix.images.plat }}
+      #         path: artifacts/${{ matrix.images.image }}/*
+      #         if-no-files-found: error
+      #         retention-days: 1
+
+      # release:
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   needs: build
+      #   runs-on: ubuntu-latest
+      #   permissions:
+      #     contents: write
+
+      #   steps:
+      #     - name: Setup
+      #       run: |
+      #         mkdir -p artifacts
+
+      #     - name: Download Wheels
+      #       uses: actions/download-artifact@v4
+      #       with:
+      #         path: artifacts
+      #         pattern: pycmt-*
+      #         merge-multiple: true
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

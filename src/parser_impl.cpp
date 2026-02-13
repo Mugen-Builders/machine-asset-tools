@@ -1252,7 +1252,9 @@ auto cma_parser_encode_erc1155_single_voucher(const cma_abi_address_t &app_addre
         throw CmaException("Invalid voucher payload buffer", -ENOBUFS);
     }
     if (voucher.payload.length < CMA_PARSER_ERC1155_SINGLE_VOUCHER_PAYLOAD_MIN_SIZE +
-        (voucher_request.erc1155_single.exec_layer_data.length/CMA_ABI_U256_LENGTH + (voucher_request.erc1155_single.exec_layer_data.length%CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) * CMA_ABI_U256_LENGTH) {
+            (voucher_request.erc1155_single.exec_layer_data.length / CMA_ABI_U256_LENGTH +
+                (voucher_request.erc1155_single.exec_layer_data.length % CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) *
+                CMA_ABI_U256_LENGTH) {
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 
@@ -1332,7 +1334,9 @@ auto cma_parser_encode_erc1155_batch_voucher(const cma_abi_address_t &app_addres
     }
     if (voucher.payload.length < CMA_PARSER_ERC1155_BATCH_VOUCHER_PAYLOAD_MIN_SIZE +
             2 * voucher_request.erc1155_batch.token_ids.length + CMA_ABI_U256_LENGTH +
-            (voucher_request.erc1155_batch.exec_layer_data.length/CMA_ABI_U256_LENGTH + (voucher_request.erc1155_batch.exec_layer_data.length%CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) * CMA_ABI_U256_LENGTH) {
+            (voucher_request.erc1155_batch.exec_layer_data.length / CMA_ABI_U256_LENGTH +
+                (voucher_request.erc1155_batch.exec_layer_data.length % CMA_ABI_U256_LENGTH == 0 ? 0 : 1)) *
+                CMA_ABI_U256_LENGTH) {
         throw CmaException("Invalid voucher payload buffersize", -ENOBUFS);
     }
 

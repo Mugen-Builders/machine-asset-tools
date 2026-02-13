@@ -3,8 +3,10 @@ from Cython.Build import cythonize
 
 setup(
     ext_modules = cythonize([
-        Extension("cmpy", ["cmpy.pyx"],
-            libraries=["cmt","cma"]
+        Extension("cmpy",
+            sources=["cmpy.pyx"],
+            libraries=["cmt","cma"],
+            language="c++",
         )
     ])
 )

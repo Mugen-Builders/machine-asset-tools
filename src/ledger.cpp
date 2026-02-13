@@ -1,6 +1,7 @@
 #include <cerrno>
 #include <exception>
 #include <string> // for string class
+#include <cstddef>
 
 extern "C" {
 #include "libcma/ledger.h"
@@ -55,7 +56,19 @@ static_assert(sizeof(cma_ledger_t) >= sizeof(cma_ledger));
 static_assert(alignof(cma_ledger_t) == alignof(cma_ledger));
 
 auto cma_ledger_init(cma_ledger_t *ledger) -> int try {
-    new (ledger) cma_ledger();
+    new (ledger) cma_ledger_memory();
+    return cma_ledger_result_success();
+} catch (...) {
+    return cma_ledger_result_failure();
+}
+
+auto cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name, size_t mem_length, size_t n_accounts,
+    size_t n_assets, size_t n_account_assets) -> int try {
+    // new (ledger) cma_ledger_file(memory_file_name, size_t mem_length, n_accounts, n_assets, n_account_assets);
+    if (cma_ledger_file::estimate_required_size(n_accounts, n_assets, n_account_assets) > mem_length) {
+        throw CmaException("Mem file size too small", -ENOBUFS);
+    }
+    new (ledger) cma_ledger_file(memory_file_name, mem_length);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -69,7 +82,7 @@ auto cma_ledger_fini(cma_ledger_t *ledger) -> int try {
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
-    ledger_ptr->~cma_ledger();
+    ledger_ptr->cma_ledger::~cma_ledger();
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();

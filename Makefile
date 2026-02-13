@@ -6,12 +6,14 @@ LABEL :=
 VERSION ?= $(MAJOR).$(MINOR).$(PATCH)$(LABEL)
 TOOLS_DEB ?= build/_deb/machine-asset-tools_riscv64.deb
 TOOLS_TAR_NAME ?= build/_tar/machine-asset-tools
+BOOST_VERSION ?= 1.90.0
+BOOST_VERSION_U := $(subst .,_,$(BOOST_VERSION))
 
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
 
-INCLUDE_FLAGS = -Iinclude
+INCLUDE_FLAGS = -Iinclude -I$(third_party_DIR)
 
 CFLAGS += -Wvla -O2 -g -Wall -Wextra \
        		-fno-strict-aliasing -fno-strict-overflow \
@@ -21,6 +23,13 @@ WARN_CXXFLAGS = -Wall -Wextra -Wpedantic -Wformat \
 			-Werror=format-security -Wno-missing-field-initializers
 
 OPT_CXXFLAGS = -O2
+
+# This fixes issues when running tests with QEMU,
+# where interprocess attempts to call pthread_mutex_init(), which fails making interproces not work properly
+DEFS += -DBOOST_INTERPROCESS_FORCE_GENERIC_EMULATION
+
+# This fixes reproducibility issues with Boost.Unordered libraries across riscv64/x86_64/aarch64
+DEFS += -DBOOST_UNORDERED_DISABLE_SSE2 -DBOOST_UNORDERED_DISABLE_NEON
 
 CXXFLAGS += \
 	-std=c++20 \
@@ -71,7 +80,7 @@ libcma_SO        := $(libcma_OBJDIR)/libcma.so
 
 $(libcma_OBJ): $(libcma_OBJDIR)/%.o: %.cpp
 	mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) $(DEFS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
 
 $(libcma_LIB): $(libcma_OBJ)
 	$(AR) rcs $@ $^
@@ -80,6 +89,24 @@ $(libcma_SO): $(libcma_OBJ)
 	$(CXX) -shared -o $@ $^ -lcmt
 
 libcma: $(libcma_LIB) $(libcma_SO)
+
+third_party_DIR := third_party
+boost_LIB       := $(third_party_DIR)/boost
+
+third_party_LIBS := $(boost_LIB)
+
+third-party: $(third_party_DIR) $(third_party_LIBS)
+
+$(third_party_DIR):
+	mkdir -p $(third_party_DIR)
+
+third-party-boost: $(boost_LIB)
+$(boost_LIB): $(third_party_DIR) /tmp/boost_$(BOOST_VERSION_U).tar.gz
+	tar zxvf /tmp/boost_$(BOOST_VERSION_U).tar.gz --strip-components 1 -C $(third_party_DIR) boost_$(BOOST_VERSION_U)/boost
+	rm /tmp/boost_$(BOOST_VERSION_U).tar.gz
+
+/tmp/boost_$(BOOST_VERSION_U).tar.gz:
+	wget https://archives.boost.io/release/$(BOOST_VERSION)/source/boost_$(BOOST_VERSION_U).tar.gz -O /tmp/boost_$(BOOST_VERSION_U).tar.gz
 
 #-------------------------------------------------------------------------------
 
@@ -136,11 +163,12 @@ deb: control install
 test_OBJDIR := build/test
 unittests_BINS := \
 	$(test_OBJDIR)/ledger \
+	$(test_OBJDIR)/file-ledger \
 	$(test_OBJDIR)/parser
 
 $(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
 	mkdir -p $(test_OBJDIR)
-	$(CC) $(CFLAGS) -o $@ $^ -lstdc++
+	$(CC) $(CFLAGS) -o $@ $^ -lm -lstdc++
 
 $(test_OBJDIR)/parser: tests/parser.c $(libcma_LIB)
 	mkdir -p $(test_OBJDIR)
@@ -237,10 +265,11 @@ clean:
 
 distclean: clean
 	@rm -rf compile_flags.txt
+	@rm -rf $(third_party_DIR)
 
 OBJ := $(libcma_OBJ)
 
-.PHONY: all clean libcma install \
+.PHONY: all clean libcma third-party install \
 	install-run install-dev tar-files control deb \
 	docker docker-image docker-shell \
 	test test-% control sample \

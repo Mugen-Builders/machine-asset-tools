@@ -3,7 +3,7 @@
 ARG IMAGE_NAME=riscv64/alpine
 ARG IMAGE_TAG=3.22.2
 ARG MACHINE_GUEST_TOOLS_VERSION=0.17.1-r1
-ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.3
+ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.4
 ARG MACHINE_ASSET_TOOLS_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 ARG MACHINE_ASSET_TOOLS_DEV_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 

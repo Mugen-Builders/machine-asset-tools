@@ -1,6 +1,6 @@
 [machine]
 ram_length = "32Mi"
-entrypoint = "/mnt/app/app"
+entrypoint = "/mnt/app/app /mnt/data/state.bin"
 use_docker_env = false # cartesi cli option to avoid using docker rootfs envs
 workdir = "/"
 
@@ -19,3 +19,10 @@ dockerfile = "Dockerfile"
 target = "app"
 format = "sqfs"
 buildx = true
+
+[drives.data]
+builder = "empty"
+size = "34Mb"
+format = "ext2"
+avoid_overwrite = "true"
+user = "dapp"
