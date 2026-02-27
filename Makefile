@@ -55,7 +55,7 @@ SH ?= 'bash'
 ifneq ($(ARCH),riscv64)
 all: docker
 docker-image:
-	docker build --quiet --platform linux/riscv64 -f $(DOCKERFILE) -t $(BUILDER_IMAGE) --target builder .
+	docker build --platform linux/riscv64 -f $(DOCKERFILE) -t $(BUILDER_IMAGE) --target builder .
 docker: docker-image
 	docker run --platform linux/riscv64 --rm -v $(PWD):/mnt/app -w /mnt/app -u $(shell id -u):$(shell id -g) $(BUILDER_IMAGE) make $(ARGS)
 docker-shell: docker-image
@@ -164,6 +164,7 @@ test_OBJDIR := build/test
 unittests_BINS := \
 	$(test_OBJDIR)/ledger \
 	$(test_OBJDIR)/file-ledger \
+	$(test_OBJDIR)/buffer-ledger \
 	$(test_OBJDIR)/parser
 
 $(test_OBJDIR)/%: tests/%.c $(libcma_LIB)
@@ -179,7 +180,11 @@ $(test_OBJDIR)/parser: tests/parser.c $(libcma_LIB)
 # LD_LIBRARY_PATH=$(libcma_OBJDIR) ./$<
 
 test: $(unittests_BINS)
-	$(foreach test,$(unittests_BINS),$(test) &&) true
+	@echo "Running all tests..."
+	for bin in $(unittests_BINS); do \
+		echo "Running $$bin..."; \
+		./$$bin; \
+	done
 
 test-%: $(test_OBJDIR)/%
 	./$<
