@@ -5,12 +5,10 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 import pytest
-import json
 
 from cartesi import abi
-from cartesi.models import ABIFunctionSelectorHeader
 
-from cartesapp.utils import hex2bytes, bytes2hex, str2hex
+from cartesapp.utils import hex2bytes, bytes2hex
 from cartesapp.testclient import TestClient
 from model import DepositEtherPayload, ETHER_PORTAL_ADDRESS, \
     DepositErc20Payload, ERC20_PORTAL_ADDRESS, Erc20Voucher, \

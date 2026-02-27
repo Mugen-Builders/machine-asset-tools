@@ -2,12 +2,14 @@
 #include <exception>
 #include <string> // for string class
 #include <cstddef>
+#include <cstdio>
 
 extern "C" {
 #include "libcma/ledger.h"
 #include "libcma/types.h"
 }
 
+#include "interprocess.hpp"
 #include "ledger_impl.h"
 #include "utils.h"
 
@@ -52,37 +54,71 @@ auto cma_ledger_result_success() -> int {
  * Ledger Api
  */
 
-static_assert(sizeof(cma_ledger_t) >= sizeof(cma_ledger));
-static_assert(alignof(cma_ledger_t) == alignof(cma_ledger));
+static_assert(sizeof(cma_ledger_t) >= sizeof(cma_ledger_base));
+static_assert(alignof(cma_ledger_t) == alignof(cma_ledger_base));
 
 auto cma_ledger_init(cma_ledger_t *ledger) -> int try {
-    new (ledger) cma_ledger_memory();
+    new (ledger) cma_ledger_basic();
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
 }
 
-auto cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name, size_t mem_length, size_t n_accounts,
-    size_t n_assets, size_t n_account_assets) -> int try {
-    // new (ledger) cma_ledger_file(memory_file_name, size_t mem_length, n_accounts, n_assets, n_account_assets);
-    if (cma_ledger_file::estimate_required_size(n_accounts, n_assets, n_account_assets) > mem_length) {
-        throw CmaException("Mem file size too small", -ENOBUFS);
+auto cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name, cma_ledger_memory_mode_t mode, size_t offset, size_t mem_length, size_t n_accounts,
+    size_t n_assets, size_t n_balances) -> int try {
+
+    size_t required_size = cma_ledger_memory::estimate_required_size(n_accounts, n_assets, n_balances);
+    if (required_size > mem_length) {
+        throw CmaException("Mem length too small", -ENOBUFS);
     }
-    new (ledger) cma_ledger_file(memory_file_name, mem_length);
+    size_t filesize = 0;
+    FILE* fp = fopen(memory_file_name, "rb");
+    if (fp != NULL) {
+        if (fseek(fp, 0L, SEEK_END) == 0) {
+            filesize = ftell(fp);
+        }
+        fclose(fp);
+    }
+    if (required_size > filesize - offset) {
+        throw CmaException("File size too small", -ENOBUFS);
+    }
+    switch (mode) {
+        case CMA_LEDGER_OPEN_ONLY:
+            new (ledger) cma_ledger_memory(interprocess::open_only, memory_file_name, offset, mem_length, n_accounts, n_assets, n_balances);
+            break;
+        case CMA_LEDGER_CREATE_ONLY:
+            new (ledger) cma_ledger_memory(interprocess::create_only, memory_file_name, offset, mem_length, n_accounts, n_assets, n_balances);
+            break;
+        default:
+            throw CmaException("Invalid file mode type", -EINVAL);
+    }
     return cma_ledger_result_success();
 } catch (...) {
-    return cma_ledger_result_failure();
+   return cma_ledger_result_failure();
+}
+
+auto cma_ledger_init_buffer(cma_ledger_t *ledger, void *buffer, size_t mem_length, size_t n_accounts,
+    size_t n_assets, size_t n_balances) -> int try {
+
+    size_t required_size = cma_ledger_memory::estimate_required_size(n_accounts, n_assets, n_balances);
+    if (required_size > mem_length) {
+        throw CmaException("Mem length too small", -ENOBUFS);
+    }
+    new (ledger) cma_ledger_memory(buffer, mem_length, n_accounts, n_assets, n_balances);
+    return cma_ledger_result_success();
+} catch (...) {
+   return cma_ledger_result_failure();
 }
 
 auto cma_ledger_fini(cma_ledger_t *ledger) -> int try {
     if (ledger == nullptr) {
         throw CmaException("Invalid ledger", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
-    ledger_ptr->cma_ledger::~cma_ledger();
+    ledger_ptr->cma_ledger_base::~cma_ledger_base();
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -92,7 +128,7 @@ auto cma_ledger_reset(cma_ledger_t *ledger) -> int try {
     if (ledger == nullptr) {
         throw CmaException("Invalid ledger", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -112,7 +148,7 @@ auto cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asse
     if (asset_type == nullptr) {
         throw CmaException("Invalid asset type ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -132,7 +168,7 @@ auto cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *
         throw CmaException("Invalid account type ptr", -EINVAL);
     }
 
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -151,7 +187,7 @@ auto cma_ledger_get_total_supply(cma_ledger_t *ledger, cma_ledger_asset_id_t ass
     if (out_total_supply == nullptr) {
         throw CmaException("Invalid total supply ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -172,7 +208,7 @@ auto cma_ledger_get_balance(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id
     if (out_balance == nullptr) {
         throw CmaException("Invalid out balance ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -190,7 +226,7 @@ auto cma_ledger_deposit(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cm
     if (deposit == nullptr) {
         throw CmaException("Invalid deposit ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -208,7 +244,7 @@ auto cma_ledger_withdraw(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, c
     if (withdrawal == nullptr) {
         throw CmaException("Invalid withdrawal ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
@@ -226,7 +262,7 @@ auto cma_ledger_transfer(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, c
     if (amount == nullptr) {
         throw CmaException("Invalid amount ptr", -EINVAL);
     }
-    auto *ledger_ptr = reinterpret_cast<cma_ledger *>(ledger);
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }

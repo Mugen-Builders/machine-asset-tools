@@ -25,7 +25,11 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/container_hash/hash.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/interprocess/managed_mapped_file.hpp> // IWYU pragma: keep
+#include <boost/interprocess/file_mapping.hpp>
+#include <boost/interprocess/exceptions.hpp>
+#include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/managed_external_buffer.hpp>
+// #include <boost/interprocess/managed_mapped_file.hpp> // IWYU pragma: keep
 #include <boost/interprocess/offset_ptr.hpp>
 #include <boost/unordered/unordered_flat_map.hpp> // IWYU pragma: keep
 #include <boost/unordered/unordered_flat_set.hpp> // IWYU pragma: keep
@@ -57,10 +61,18 @@ static_assert(sizeof(std::size_t) == sizeof(std::uint64_t) && sizeof(std::ptrdif
     "code assumes 64-bit architecture");
 static_assert(std::endian::native == std::endian::little, "code assumes little-endian byte order");
 
-using managed_memory = boost::interprocess::managed_mapped_file;
+using managed_memory = boost::interprocess::managed_external_buffer;
 using void_allocator = boost::interprocess::allocator<void, managed_memory::segment_manager>;
 
-using boost::interprocess::open_or_create;
+using boost::interprocess::interprocess_exception;
+using boost::interprocess::file_mapping;
+using boost::interprocess::mapped_region;
+// using boost::interprocess::open_or_create;
+using boost::interprocess::create_only_t;
+using boost::interprocess::create_only;
+using boost::interprocess::open_only_t;
+using boost::interprocess::open_only;
+using boost::interprocess::read_write;
 using boost::interprocess::unique_instance;
 
 using basic_string = boost::interprocess::basic_string<char, std::char_traits<char>, void_allocator>;

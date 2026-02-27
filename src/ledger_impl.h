@@ -37,6 +37,13 @@ using cma_ledger_asset_struct_t = struct cma_ledger_asset_struct {
     cma_amount_t supply;
 };
 
+// using cma_ledger_account_t = struct cma_ledger_account {
+//     cma_ledger_account_t account;
+//     cma_token_address_t token_address;
+//     cma_token_id_t token_id;
+//     cma_amount_t supply;
+// };
+
 struct hash_pair {
     template <class T1, class T2>
     auto operator()(const std::pair<T1, T2> &pair_ref) const -> size_t {
@@ -50,12 +57,12 @@ using cma_ledger_asset_key_bytes_t = std::array<uint8_t, CMA_LEDGER_ASSET_MAP_KE
 
 using cma_map_key_t = std::pair<cma_ledger_account_id_t, cma_ledger_asset_id_t>;
 
-class cma_ledger {
+class cma_ledger_base {
 private:
     uint64_t magic = CMA_LEDGER_MAGIC;
 
 public:
-    ~cma_ledger();
+    ~cma_ledger_base();
 
     [[nodiscard]] auto is_initialized() const -> bool;
 
@@ -86,7 +93,7 @@ public:
         cma_ledger_account_id_t to_account_id, const cma_amount_t &amount) = 0;
 };
 
-class cma_ledger_memory : public cma_ledger {
+class cma_ledger_basic : public cma_ledger_base {
 private:
     using cma_ledger_asset_key_t = std::string;
     using cma_ledger_account_key_t = std::string;
@@ -103,7 +110,7 @@ private:
     account_asset_map_t account_asset_balance;
 
 public:
-    cma_ledger_memory() = default;
+    cma_ledger_basic() = default;
 
     void clear() override;
     auto get_asset_count() -> size_t override;
@@ -133,7 +140,18 @@ public:
         cma_ledger_account_id_t to_account_id, const cma_amount_t &amount) override;
 };
 
-class cma_ledger_file : public cma_ledger {
+
+// TODO: remove extra maps
+// TODO: add balance list and non withdrawable balance list
+// TODO: remove account+asset pair map and use pointer to lists
+// TODO: change asset id and account id to single representation
+// TODO: stora withdrawable balance only in balance list and non-withdrawable in anothre unordered_node_map
+// TODO: use class for account that points to current n_balances
+// TODO: return number of balances (or balance list) for account and supply for asset
+// TODO: implement auto remove balances
+// TODO: Implement find and remove to remove assets and accounts
+
+class cma_ledger_memory: public cma_ledger_base {
 private:
     using cma_ledger_account_key_bytes_t = std::array<uint8_t, CMA_ABI_ID_LENGTH>;
     using lassid_to_asset_t = interprocess::unordered_node_map<cma_ledger_asset_id_t, cma_ledger_asset_struct_t>;
@@ -143,6 +161,12 @@ private:
         interprocess::unordered_node_map<cma_ledger_account_key_bytes_t, cma_ledger_account_id_t>;
     using account_asset_map_t = interprocess::unordered_node_map<cma_map_key_t, cma_amount_t, hash_pair>;
 
+    size_t max_accounts;
+    size_t max_assets;
+    size_t max_balances;
+
+    interprocess::file_mapping m_file; ///< Mapped file containing the whole ledger state.
+    interprocess::mapped_region m_region; ///< Region of the mapped file containing the ledger state.
     interprocess::managed_memory m_memory; ///< Mapped memory containing the whole ledger state.
     interprocess::void_allocator &m_allocator;
 
@@ -151,12 +175,12 @@ private:
     laccid_to_account_t &laccid_to_account;
     account_to_laccid_t &account_to_laccid;
     account_asset_map_t &account_asset_balance;
-
 public:
-    cma_ledger_file(const char *memory_file_name,
-        size_t mem_length); //, size_t n_accounts, size_t n_assets, size_t n_account_assets);
+    cma_ledger_memory(interprocess::open_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
+    cma_ledger_memory(interprocess::create_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
+    cma_ledger_memory(void *mem_ptr, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
 
-    static auto estimate_required_size(size_t n_accounts, size_t n_assets, size_t n_account_assets) -> size_t;
+    static auto estimate_required_size(size_t n_accounts, size_t n_assets, size_t n_balances) -> size_t;
     void clear() override;
     auto get_asset_count() -> size_t override;
     void retrieve_create_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,

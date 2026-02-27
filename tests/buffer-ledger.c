@@ -11,59 +11,40 @@
 #define MAX_BALANCES 8 * MAX_ACCOUNTS        //< Max balances
 #define MAX_ASSETS 256UL             //< Maximum number of assets.
 #define MEM_LENGTH 32UL * 1024 * 1024 //< State length
-#define FILE_SIZE 1 * MEM_LENGTH //< State file size
-#define TMPFILE_PATH_SIZE 14
-
-int create_temp_file(char *filepath_template, size_t size) {
-    int fd = mkstemp(filepath_template);
-    if (fd == -1) {
-        return -EBADF;
-    }
-    if (ftruncate(fd, size) == -1) {
-        close(fd);
-        unlink(filepath_template);
-        return -EBADFD;
-    }
-    close(fd);
-    return 0;
-}
 
 void test_init_and_fini(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
 
     cma_ledger_t ledger;
 
     assert(cma_ledger_fini(&ledger) == -EINVAL);
 
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, MEM_LENGTH, 2 * MAX_ACCOUNTS, 2 * MAX_ASSETS,
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, 2 * MAX_ACCOUNTS, 2 * MAX_ASSETS,
                2 * MAX_BALANCES) == -ENOBUFS);
 
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
 
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_OPEN_ONLY, 0, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
 
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_init_and_reset(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     assert(cma_ledger_reset(NULL) == -EINVAL);
 
     cma_ledger_t ledger;
-    printf("Ledger struct size: %zu\n", sizeof(ledger));
 
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
-    printf("Ledger struct size: %zu\n", sizeof(ledger));
 
     // add assets and accounts and test not empty
 
@@ -81,52 +62,14 @@ void test_init_and_reset(void) {
         CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
-    printf("%s passed\n", __FUNCTION__);
-}
-
-void test_init_and_load(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
-    assert(cma_ledger_reset(NULL) == -EINVAL);
-
-    cma_ledger_t ledger;
-    cma_ledger_reset(&ledger);
-    assert(cma_ledger_reset(&ledger) == -EINVAL);
-
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
-        CMA_LEDGER_SUCCESS);
-
-    // add assets and accounts and test not empty
-    cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
-    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
-        CMA_LEDGER_SUCCESS);
-    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
-        CMA_LEDGER_SUCCESS);
-
-    assert(asset_id == 1);
-
-    // finalize and load
-    assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-
-    cma_ledger_t ledger2;
-    assert(cma_ledger_init_file(&ledger2, temp_filepath, CMA_LEDGER_OPEN_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
-        CMA_LEDGER_SUCCESS);
-
-    assert(cma_ledger_retrieve_asset(&ledger2, &asset_id, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) ==
-        CMA_LEDGER_SUCCESS);
-
-    assert(cma_ledger_fini(&ledger2) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_asset_id(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
@@ -157,15 +100,14 @@ void test_asset_id(void) {
     assert(asset_id == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_asset_with_token_address(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
@@ -218,15 +160,14 @@ void test_asset_with_token_address(void) {
     assert(memcmp(token_address_find.data, token_address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_asset_with_token_address_and_id(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
@@ -294,15 +235,14 @@ void test_asset_with_token_address_and_id(void) {
     assert(memcmp(token_id_find.data, token_id1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_account_id(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ID;
@@ -333,15 +273,14 @@ void test_account_id(void) {
     assert(account_id == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_account_address(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
@@ -443,15 +382,14 @@ void test_account_address(void) {
     assert(memcmp(account_created.address.data, address3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_account_full_id(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger,temp_filepath,CMA_LEDGER_CREATE_ONLY,0,FILE_SIZE,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     assert(cma_ledger_retrieve_account(&ledger, NULL, NULL, NULL, &account_type,
@@ -569,15 +507,14 @@ void test_account_full_id(void) {
     assert(memcmp(account_created.account_id.data, full_account3.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_asset_total_supply_balance(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger,temp_filepath,CMA_LEDGER_CREATE_ONLY,0,FILE_SIZE,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_id_t asset_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
@@ -620,15 +557,14 @@ void test_asset_total_supply_balance(void) {
     assert(memcmp(balance.data, zero_amount.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_deposit(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger,temp_filepath,CMA_LEDGER_CREATE_ONLY,0,FILE_SIZE,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_deposit(&ledger, 1000, 1000, NULL) ==
         -EINVAL);
@@ -725,15 +661,14 @@ void test_deposit(void) {
     assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_withdraw(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger,temp_filepath,CMA_LEDGER_CREATE_ONLY,0,FILE_SIZE,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_withdraw(&ledger, 1000, 1000, NULL) ==
         -EINVAL);
@@ -828,15 +763,14 @@ void test_withdraw(void) {
     assert(memcmp(balance.data, amount2.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 void test_transfer(void) {
-    char temp_filepath[TMPFILE_PATH_SIZE] = "/tmp/tmpXXXXXX";
-    assert(create_temp_file(temp_filepath,FILE_SIZE) == 0);
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
     cma_ledger_t ledger;
-    assert(cma_ledger_init_file(&ledger,temp_filepath,CMA_LEDGER_CREATE_ONLY,0,FILE_SIZE,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     assert(cma_ledger_transfer(&ledger, 1000, 1000, 1001, NULL) ==
         -EINVAL);
@@ -934,14 +868,12 @@ void test_transfer(void) {
     assert(memcmp(balance.data, amount3.data, CMA_ABI_U256_LENGTH) == 0);
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
-    assert(unlink(temp_filepath) == 0);
     printf("%s passed\n", __FUNCTION__);
 }
 
 int main(void) {
     test_init_and_fini();
     test_init_and_reset();
-    test_init_and_load();
     test_asset_id();
     test_asset_with_token_address();
     test_asset_with_token_address_and_id();

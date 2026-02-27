@@ -30,8 +30,8 @@ extern "C" {
 #define ASSETS_PER_ACCOUNT 8        //< Average of positions for an account.
 #define MAX_ACCOUNTS 16UL * 1024    //< Maximum number of accounts.
 #define MAX_ASSETS 256UL            //< Maximum number of assets.
-#define MAX_ASSETS 256UL            //< Maximum number of assets.
-#define FILE_SIZE 33554432UL // 28000256UL //33554432UL//< State file size
+#define MAX_BALANCES ASSETS_PER_ACCOUNT * MAX_ACCOUNTS  //< Maximum number of balances.
+#define MEMORY_SIZE 27999296UL //33554432UL//< State file size
 
 ////////////////////////////////////////////////////////////////////////////////
 // Abi utilities.
@@ -1152,11 +1152,17 @@ auto main(int argc, char* argv[]) -> int {
         std::ignore = std::fprintf(stderr, "[app] Missing state file from argument\n");
         return -1;
     }
+    cma_ledger_memory_mode_t memory_mode = CMA_LEDGER_OPEN_ONLY;
+    if (argc > 2) {
+        memory_mode = CMA_LEDGER_CREATE_ONLY;
+    }
 
     // Initialize ledger
     cma_ledger_t ledger;
     // int err = cma_ledger_init(&ledger);
-    int err = cma_ledger_init_file(&ledger, argv[1], FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, ASSETS_PER_ACCOUNT);
+    int err = cma_ledger_init_file(&ledger, argv[1],
+        memory_mode, 0, MEMORY_SIZE,
+        MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES);
     if (err != CMA_LEDGER_SUCCESS) {
         std::ignore = std::fprintf(stderr, "[app] unable to Initialize ledger: (%d) %s\n", err, cma_ledger_get_last_error_message());
         return -1;
@@ -1172,7 +1178,7 @@ auto main(int argc, char* argv[]) -> int {
     }
 
     // create ether asset in ledger lib
-    cma_ledger_asset_id_t asset_id = 0;
+    cma_ledger_asset_id_t asset_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
     err = cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, &asset_type,
                CMA_LEDGER_OP_FIND_OR_CREATE);

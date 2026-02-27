@@ -14,7 +14,7 @@ extern "C" {
 #include "types.h"
 
 enum {
-    CMA_LEDGER_T_SIZE = 336 / 8,
+    CMA_LEDGER_T_SIZE = 152 / 8,
 };
 
 typedef struct cma_ledger_struct {
@@ -35,18 +35,22 @@ enum {
     CMA_LEDGER_ERROR_BALANCE_OVERFLOW = -1007,
     CMA_LEDGER_ERROR_INVALID_ACCOUNT = -1008,
     CMA_LEDGER_ERROR_INSERTION_ERROR = -1009,
+    CMA_LEDGER_ERROR_MAX_ASSETS_REACHED = -1010,
+    CMA_LEDGER_ERROR_MAX_ACCOUNTS_REACHED = -1011,
 };
 
 typedef enum {
     CMA_LEDGER_OP_FIND,
     CMA_LEDGER_OP_CREATE,
     CMA_LEDGER_OP_FIND_OR_CREATE,
+    // CMA_LEDGER_OP_FIND_AND_REMOVE,
 } cma_ledger_retrieve_operation_t;
 
 typedef enum {
     CMA_LEDGER_ASSET_TYPE_ID,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID,
+    // CMA_LEDGER_ASSET_TYPE_BASE,
 } cma_ledger_asset_type_t;
 
 typedef enum {
@@ -54,6 +58,11 @@ typedef enum {
     CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS,
     CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID,
 } cma_ledger_account_type_t;
+
+typedef enum {
+    CMA_LEDGER_OPEN_ONLY,
+    CMA_LEDGER_CREATE_ONLY,
+} cma_ledger_memory_mode_t;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -69,12 +78,26 @@ typedef struct cma_ledger_account {
 } cma_ledger_account_t;
 #pragma GCC diagnostic pop
 
+typedef struct cma_ledger_account_balance {
+    uint32_t type;
+    cma_abi_address_t owner;
+    cma_token_address_t token;
+    cma_token_id_t token_id;
+    cma_amount_t balance;
+    uint8_t padding[12]; // Align to 4*32 bytes
+} cma_ledger_account_balance_t;
+
 CMA_LEDGER_API int cma_ledger_init(cma_ledger_t *ledger);
 CMA_LEDGER_API int cma_ledger_fini(cma_ledger_t *ledger);
 CMA_LEDGER_API int cma_ledger_reset(cma_ledger_t *ledger);
 
-CMA_LEDGER_API int cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name, size_t mem_length,
-    size_t n_accounts, size_t n_assets, size_t n_account_assets);
+CMA_LEDGER_API int cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name,
+    cma_ledger_memory_mode_t mode, size_t offset, size_t mem_length,
+    size_t n_accounts, size_t n_assets, size_t n_balances);
+
+CMA_LEDGER_API int cma_ledger_init_buffer(cma_ledger_t *ledger, void *buffer,
+    size_t mem_length,
+    size_t n_accounts, size_t n_assets, size_t n_balances);
 
 // Retrieve/create an asset
 // try to retrieve: If id is defined, fill with the asset details, otherwise fill with id
