@@ -23,6 +23,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
+#include <boost/container/vector.hpp>
 #include <boost/container_hash/hash.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/file_mapping.hpp>
@@ -116,6 +117,10 @@ using flat_map = boost::container::flat_map<Key, Value, Compare,
 template <typename Key, class Compare>
 using flat_set =
     boost::container::flat_set<Key, Compare, boost::interprocess::allocator<Key, managed_memory::segment_manager>>;
+
+template <typename Key>
+using vector =
+    boost::container::vector<Key, boost::interprocess::allocator<Key, managed_memory::segment_manager>>;
 
 using boost::unordered::erase_if;
 

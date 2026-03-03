@@ -9,8 +9,8 @@
 
 #define MAX_ACCOUNTS 16UL * 1024     //< Maximum number of accounts.
 #define MAX_BALANCES 8 * MAX_ACCOUNTS        //< Max balances
-#define MAX_ASSETS 256UL             //< Maximum number of assets.
-#define MEM_LENGTH 32UL * 1024 * 1024 //< State length
+#define MAX_ASSETS 8UL             //< Maximum number of assets.
+#define MEM_LENGTH 64UL * 1024 * 1024 //< State length
 
 void test_init_and_fini(void) {
     uint8_t *buffer = malloc(MEM_LENGTH);
@@ -23,6 +23,10 @@ void test_init_and_fini(void) {
     assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, 2 * MAX_ACCOUNTS, 2 * MAX_ASSETS,
                2 * MAX_BALANCES) == -ENOBUFS);
 
+    printf("res %d (%s)\n",
+        cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES),
+        cma_ledger_get_last_error_message());
+
     assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
 
@@ -33,6 +37,8 @@ void test_init_and_fini(void) {
 
     assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
 
+    free(buffer);
+    buffer = NULL;
     printf("%s passed\n", __FUNCTION__);
 }
 

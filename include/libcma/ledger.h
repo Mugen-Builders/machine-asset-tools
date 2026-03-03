@@ -14,7 +14,7 @@ extern "C" {
 #include "types.h"
 
 enum {
-    CMA_LEDGER_T_SIZE = 152 / 8,
+    CMA_LEDGER_T_SIZE = 512, // / 8,
 };
 
 typedef struct cma_ledger_struct {
@@ -31,12 +31,14 @@ enum {
     CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS = -1003,
     CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND = -1004,
     CMA_LEDGER_ERROR_ASSET_NOT_FOUND = -1005,
-    CMA_LEDGER_ERROR_SUPPLY_OVERFLOW = -1006,
-    CMA_LEDGER_ERROR_BALANCE_OVERFLOW = -1007,
-    CMA_LEDGER_ERROR_INVALID_ACCOUNT = -1008,
-    CMA_LEDGER_ERROR_INSERTION_ERROR = -1009,
-    CMA_LEDGER_ERROR_MAX_ASSETS_REACHED = -1010,
-    CMA_LEDGER_ERROR_MAX_ACCOUNTS_REACHED = -1011,
+    CMA_LEDGER_ERROR_BALANCE_NOT_FOUND = -1006,
+    CMA_LEDGER_ERROR_SUPPLY_OVERFLOW = -1007,
+    CMA_LEDGER_ERROR_BALANCE_OVERFLOW = -1008,
+    CMA_LEDGER_ERROR_INVALID_ACCOUNT = -1009,
+    CMA_LEDGER_ERROR_INSERTION_ERROR = -1010,
+    CMA_LEDGER_ERROR_MAX_ASSETS_REACHED = -1011,
+    CMA_LEDGER_ERROR_MAX_ACCOUNTS_REACHED = -1012,
+    CMA_LEDGER_ERROR_MAX_BALANCES_REACHED = -1013,
 };
 
 typedef enum {
@@ -48,9 +50,9 @@ typedef enum {
 
 typedef enum {
     CMA_LEDGER_ASSET_TYPE_ID,
+    CMA_LEDGER_ASSET_TYPE_BASE,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID,
-    // CMA_LEDGER_ASSET_TYPE_BASE,
 } cma_ledger_asset_type_t;
 
 typedef enum {
@@ -81,10 +83,10 @@ typedef struct cma_ledger_account {
 typedef struct cma_ledger_account_balance {
     uint32_t type;
     cma_abi_address_t owner;
-    cma_token_address_t token;
+    cma_token_address_t token_address;
     cma_token_id_t token_id;
-    cma_amount_t balance;
-    uint8_t padding[12]; // Align to 4*32 bytes
+    cma_amount_t amount;
+    uint8_t padding[20]; // Align to 4*32 bytes
 } cma_ledger_account_balance_t;
 
 CMA_LEDGER_API int cma_ledger_init(cma_ledger_t *ledger);
@@ -134,6 +136,10 @@ CMA_LEDGER_API int cma_ledger_get_balance(cma_ledger_t *ledger, cma_ledger_asset
 // Get total supply
 CMA_LEDGER_API int cma_ledger_get_total_supply(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
     cma_amount_t *out_total_supply);
+
+// Get number of balances
+CMA_LEDGER_API int cma_ledger_get_account_balances(cma_ledger_t *ledger, cma_ledger_account_id_t account_id,
+    cma_ledger_account_balance_t *out_account_balance);
 
 // get error message
 CMA_LEDGER_API const char *cma_ledger_get_last_error_message();

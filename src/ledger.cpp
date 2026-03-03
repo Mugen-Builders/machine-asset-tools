@@ -100,11 +100,15 @@ auto cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name, cm
 auto cma_ledger_init_buffer(cma_ledger_t *ledger, void *buffer, size_t mem_length, size_t n_accounts,
     size_t n_assets, size_t n_balances) -> int try {
 
+    // printf("cma_ledger_memory: %zu\n", sizeof(cma_ledger_memory));
     size_t required_size = cma_ledger_memory::estimate_required_size(n_accounts, n_assets, n_balances);
+    // printf("mem_length: %zu\n", mem_length);
+    // printf("Required size: %zu\n", required_size);
     if (required_size > mem_length) {
         throw CmaException("Mem length too small", -ENOBUFS);
     }
-    new (ledger) cma_ledger_memory(buffer, mem_length, n_accounts, n_assets, n_balances);
+    new cma_ledger_memory(buffer, mem_length, n_accounts, n_assets, n_balances);
+    new (ledger) cma_ledger_basic();
     return cma_ledger_result_success();
 } catch (...) {
    return cma_ledger_result_failure();
@@ -152,7 +156,7 @@ auto cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asse
     if (!ledger_ptr->is_initialized()) {
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
-    ledger_ptr->retrieve_create_asset(asset_id, token_address, token_id, *asset_type, operation);
+    ledger_ptr->retrieve_asset(asset_id, token_address, token_id, *asset_type, operation);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -173,7 +177,7 @@ auto cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
 
-    ledger_ptr->retrieve_create_account(account_id, account, addr_accid, *account_type, operation);
+    ledger_ptr->retrieve_account(account_id, account, addr_accid, *account_type, operation);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();
@@ -213,6 +217,24 @@ auto cma_ledger_get_balance(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id
         throw CmaException("Invalid ledger ptr", -EINVAL);
     }
     ledger_ptr->get_account_asset_balance(asset_id, account_id, *out_balance);
+    return cma_ledger_result_success();
+} catch (...) {
+    return cma_ledger_result_failure();
+}
+
+auto cma_ledger_get_account_balance(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
+    cma_ledger_account_balance_t *out_account_balance) -> int try {
+    if (ledger == nullptr) {
+        throw CmaException("Invalid ledger ptr", -EINVAL);
+    }
+    if (out_account_balance == nullptr) {
+        throw CmaException("Invalid out balance ptr", -EINVAL);
+    }
+    auto *ledger_ptr = reinterpret_cast<cma_ledger_base *>(ledger);
+    if (!ledger_ptr->is_initialized()) {
+        throw CmaException("Invalid ledger ptr", -EINVAL);
+    }
+    ledger_ptr->get_account_balance(asset_id, account_id, *out_account_balance);
     return cma_ledger_result_success();
 } catch (...) {
     return cma_ledger_result_failure();

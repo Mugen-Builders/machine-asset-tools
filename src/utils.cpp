@@ -42,3 +42,8 @@ auto amount_checked_sub(cma_amount_t &res, const cma_amount_t &amount_a, const c
     }
     return borrow == 0;
 }
+
+auto is_zero(const cma_amount_t &amount) -> bool {
+    static const cma_amount_t zero = {.data={0}};
+    return std::memcmp(amount.data, zero.data, sizeof(amount.data)) == 0;
+}

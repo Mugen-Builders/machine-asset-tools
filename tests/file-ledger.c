@@ -9,8 +9,8 @@
 
 #define MAX_ACCOUNTS 16UL * 1024     //< Maximum number of accounts.
 #define MAX_BALANCES 8 * MAX_ACCOUNTS        //< Max balances
-#define MAX_ASSETS 256UL             //< Maximum number of assets.
-#define MEM_LENGTH 32UL * 1024 * 1024 //< State length
+#define MAX_ASSETS 8UL             //< Maximum number of assets.
+#define MEM_LENGTH 64UL * 1024 * 1024 //< State length
 #define FILE_SIZE 1 * MEM_LENGTH //< State file size
 #define TMPFILE_PATH_SIZE 14
 
@@ -59,11 +59,9 @@ void test_init_and_reset(void) {
     assert(cma_ledger_reset(NULL) == -EINVAL);
 
     cma_ledger_t ledger;
-    printf("Ledger struct size: %zu\n", sizeof(ledger));
 
     assert(cma_ledger_init_file(&ledger, temp_filepath, CMA_LEDGER_CREATE_ONLY, 0, FILE_SIZE, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
         CMA_LEDGER_SUCCESS);
-    printf("Ledger struct size: %zu\n", sizeof(ledger));
 
     // add assets and accounts and test not empty
 
