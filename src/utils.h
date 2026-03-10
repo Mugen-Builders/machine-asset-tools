@@ -1,9 +1,9 @@
 #ifndef CMA_UTILS_H
 #define CMA_UTILS_H
 
+#include <cstring> // for string class
 #include <exception>
 #include <string> // for string class
-#include <cstring> // for string class
 
 extern "C" {
 #include "libcma/types.h"

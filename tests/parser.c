@@ -3780,6 +3780,6 @@ int main(void) {
 // }
 // printf(" (expected)\n");
 
-// printf("res %d (%s)\n",
+// printf("DEBUG Result %d (%s)\n",
 //     cma_parser_decode_advance(CMA_PARSER_INPUT_TYPE_ETHER_DEPOSIT, &malformed_advance1, &parser_input),
 //     cma_parser_get_last_error_message());

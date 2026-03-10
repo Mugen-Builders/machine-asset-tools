@@ -70,20 +70,21 @@ public:
 
     virtual auto get_asset_count() -> size_t = 0;
     virtual void retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
-        cma_token_id_t *token_id, cma_ledger_asset_type_t &asset_type, cma_ledger_retrieve_operation_t operation) = 0;
+        cma_token_id_t *token_id, cma_amount_t *out_total_supply, cma_ledger_asset_type_t &asset_type,
+        cma_ledger_retrieve_operation_t operation) = 0;
     virtual auto find_asset(cma_ledger_asset_id_t asset_id, cma_ledger_asset_type_t *asset_type,
         cma_token_address_t *token_address, cma_token_id_t *token_id, cma_amount_t *supply) -> bool = 0;
 
     virtual auto get_account_count() -> size_t = 0;
-    virtual auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, uint64_t *n_balances) -> bool = 0;
+    virtual auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, size_t *n_balances)
+        -> bool = 0;
     virtual void retrieve_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account,
-        const void *addr_accid, cma_ledger_account_type_t &account_type, cma_ledger_retrieve_operation_t operation) = 0;
+        const void *addr_accid, size_t *n_balances, cma_ledger_account_type_t &account_type,
+        cma_ledger_retrieve_operation_t operation) = 0;
 
     virtual void set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &supply) = 0;
     virtual void get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_amount_t &balance) = 0;
-    virtual void get_account_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_ledger_account_balance_t &account_balance) = 0;
+        cma_amount_t *balance, cma_ledger_account_balance_info_t *account_balance_info) = 0;
     virtual void set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
         const cma_amount_t &balance) = 0;
 
@@ -116,23 +117,22 @@ public:
 
     void clear() override;
     auto get_asset_count() -> size_t override;
-    void retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
-        cma_token_id_t *token_id, cma_ledger_asset_type_t &asset_type,
+    void retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address, cma_token_id_t *token_id,
+        cma_amount_t *out_total_supply, cma_ledger_asset_type_t &asset_type,
         cma_ledger_retrieve_operation_t operation) override;
     auto find_asset(cma_ledger_asset_id_t asset_id, cma_ledger_asset_type_t *asset_type,
         cma_token_address_t *token_address, cma_token_id_t *token_id, cma_amount_t *supply) -> bool override;
 
     auto get_account_count() -> size_t override;
-    auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, uint64_t *n_balances) -> bool override;
-    void retrieve_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account,
-        const void *addr_accid, cma_ledger_account_type_t &account_type,
+    auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, size_t *n_balances)
+        -> bool override;
+    void retrieve_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account, const void *addr_accid,
+        size_t *n_balances, cma_ledger_account_type_t &account_type,
         cma_ledger_retrieve_operation_t operation) override;
 
     void set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &supply) override;
     void get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_amount_t &balance) override;
-    void get_account_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_ledger_account_balance_t &account_balance) override;
+        cma_amount_t *balance, cma_ledger_account_balance_info_t *account_balance_info) override;
     void set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
         const cma_amount_t &balance) override;
 
@@ -144,17 +144,13 @@ public:
         cma_ledger_account_id_t to_account_id, const cma_amount_t &amount) override;
 };
 
-
 // TODO: remove extra maps
 // TODO: add balance list and non withdrawable balance list
 // TODO: remove account+asset pair map and use pointer to lists
 // TODO: change asset id and account id to single representation
-// TODO: return number of balances (or balance list) for account and supply for asset
-// TODO: Implement find and remove to remove assets and accounts
 
-class cma_ledger_memory: public cma_ledger_base {
+class cma_ledger_memory : public cma_ledger_base {
 private:
-
     typedef enum {
         CMA_LEDGER_BALANCE_TYPE_VIRTUAL,
         CMA_LEDGER_BALANCE_TYPE_WITHDRAWABLE,
@@ -177,7 +173,7 @@ private:
 
     using cma_ledger_account_struct_t = struct cma_ledger_account_struct {
         cma_ledger_account_t account;
-        uint64_t n_balances;
+        size_t n_balances;
     };
 
     using cma_ledger_account_key_bytes_t = std::array<uint8_t, CMA_ABI_ID_LENGTH>;
@@ -196,8 +192,8 @@ private:
     size_t max_assets;
     size_t max_balances;
 
-    interprocess::file_mapping m_file; ///< Mapped file containing the whole ledger state.
-    interprocess::mapped_region m_region; ///< Region of the mapped file containing the ledger state.
+    interprocess::file_mapping m_file;     ///< Mapped file containing the whole ledger state.
+    interprocess::mapped_region m_region;  ///< Region of the mapped file containing the ledger state.
     interprocess::managed_memory m_memory; ///< Mapped memory containing the whole ledger state.
     interprocess::void_allocator &m_allocator;
 
@@ -210,31 +206,37 @@ private:
     account_asset_map_t &account_asset_balance;
     balance_key_list_t &last_balances;
     balance_key_list_t &last_virtual_balances;
+    cma_ledger_asset_id_t &next_asset_id;
+    cma_ledger_account_id_t &next_account_id;
+
 public:
-    cma_ledger_memory(interprocess::open_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
-    cma_ledger_memory(interprocess::create_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
+    cma_ledger_memory(interprocess::open_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length,
+        size_t n_accounts, size_t n_assets, size_t n_balances);
+    cma_ledger_memory(interprocess::create_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length,
+        size_t n_accounts, size_t n_assets, size_t n_balances);
     cma_ledger_memory(void *mem_ptr, size_t mem_length, size_t n_accounts, size_t n_assets, size_t n_balances);
 
     static auto estimate_required_size(size_t n_accounts, size_t n_assets, size_t n_balances) -> size_t;
     void clear() override;
     auto get_asset_count() -> size_t override;
-    void retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address,
-        cma_token_id_t *token_id, cma_ledger_asset_type_t &asset_type,
+    void retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_token_address_t *token_address, cma_token_id_t *token_id,
+        cma_amount_t *out_total_supply, cma_ledger_asset_type_t &asset_type,
         cma_ledger_retrieve_operation_t operation) override;
     auto find_asset(cma_ledger_asset_id_t asset_id, cma_ledger_asset_type_t *asset_type,
         cma_token_address_t *token_address, cma_token_id_t *token_id, cma_amount_t *supply) -> bool override;
+    auto remove_asset(cma_ledger_asset_id_t asset_id) -> void;
 
     auto get_account_count() -> size_t override;
-    auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, uint64_t *n_balances) -> bool override;
-    void retrieve_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account,
-        const void *addr_accid, cma_ledger_account_type_t &account_type,
+    auto find_account(cma_ledger_account_id_t account_id, cma_ledger_account_t *account, size_t *n_balances)
+        -> bool override;
+    void retrieve_account(cma_ledger_account_id_t *account_id, cma_ledger_account_t *account, const void *addr_accid,
+        size_t *n_balances, cma_ledger_account_type_t &account_type,
         cma_ledger_retrieve_operation_t operation) override;
+    auto remove_account(cma_ledger_account_id_t account_id) -> void;
 
     void set_asset_supply(cma_ledger_asset_id_t asset_id, cma_amount_t &supply) override;
     void get_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_amount_t &balance) override;
-    void get_account_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
-        cma_ledger_account_balance_t &account_balance) override;
+        cma_amount_t *balance, cma_ledger_account_balance_info_t *account_balance_info) override;
     void set_account_asset_balance(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t account_id,
         const cma_amount_t &balance) override;
 
