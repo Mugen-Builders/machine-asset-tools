@@ -597,7 +597,7 @@ size_t cma_ledger_memory::estimate_required_size(size_t n_accounts, size_t n_ass
                            sizeof(cma_ledger_account_balance_t) +        // sizeof(cma_ledger_account_virtual_balance_t)
                            sizeof(cma_map_key_t) + sizeof(cma_map_key_t) // last keys lists
                            )) +
-               2 * sizeof(cma_ledger_asset_id_t)) *
+               3 * sizeof(cma_ledger_asset_id_t) + sizeof(bool)) *
         5 / 4 // security factor
         + CMA_LEDGER_MIN_MEM_LENGTH;
 }
@@ -630,7 +630,9 @@ cma_ledger_memory::cma_ledger_memory(interprocess::open_only_t mode, const char 
     last_virtual_balances{
         *m_memory.find_or_construct<balance_key_list_t>("last_virtual_balances")(0, m_memory.get_segment_manager())},
     next_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("next_asset_id")(0)},
-    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)} {
+    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)},
+    base_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("base_asset_id")(0)},
+    base_asset_id_defined{*m_memory.find_or_construct<bool>("base_asset_id_defined")(false)} {
     size_t required_size = cma_ledger_memory::estimate_required_size(max_accounts, max_assets, max_balances);
     if (required_size > m_region.get_size()) {
         throw CmaException("Mem length too small", -ENOBUFS);
@@ -669,7 +671,9 @@ cma_ledger_memory::cma_ledger_memory(interprocess::create_only_t mode, const cha
     last_virtual_balances{
         *m_memory.find_or_construct<balance_key_list_t>("last_virtual_balances")(0, m_memory.get_segment_manager())},
     next_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("next_asset_id")(0)},
-    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)} {
+    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)},
+    base_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("base_asset_id")(0)},
+    base_asset_id_defined{*m_memory.find_or_construct<bool>("base_asset_id_defined")(false)} {
     size_t required_size = cma_ledger_memory::estimate_required_size(max_accounts, max_assets, max_balances);
     if (required_size > m_region.get_size()) {
         throw CmaException("Mem length too small", -ENOBUFS);
@@ -708,7 +712,9 @@ cma_ledger_memory::cma_ledger_memory(void *mem_ptr, size_t mem_length, size_t n_
     last_virtual_balances{
         *m_memory.find_or_construct<balance_key_list_t>("last_virtual_balances")(0, m_memory.get_segment_manager())},
     next_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("next_asset_id")(0)},
-    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)} {
+    next_account_id{*m_memory.find_or_construct<cma_ledger_account_id_t>("next_account_id")(0)},
+    base_asset_id{*m_memory.find_or_construct<cma_ledger_asset_id_t>("base_asset_id")(0)},
+    base_asset_id_defined{*m_memory.find_or_construct<bool>("base_asset_id_defined")(false)} {
     size_t required_size = cma_ledger_memory::estimate_required_size(max_accounts, max_assets, max_balances);
     if (required_size > mem_length) {
         throw CmaException("Mem length too small", -ENOBUFS);
@@ -788,8 +794,11 @@ auto cma_ledger_memory::remove_asset(cma_ledger_asset_id_t asset_id) -> void {
         throw CmaException("Asset still have supply", CMA_LEDGER_ERROR_ASSET_SUPPLY);
     }
     switch (find_result->second.type) {
-        case CMA_LEDGER_ASSET_TYPE_ID:
+        case CMA_LEDGER_ASSET_TYPE_ID: {
+            break;
+        }
         case CMA_LEDGER_ASSET_TYPE_BASE: {
+            base_asset_id_defined = false;
             break;
         }
         case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS: {
@@ -858,6 +867,10 @@ void cma_ledger_memory::retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_toke
             }
             if (operation == CMA_LEDGER_OP_FIND || operation == CMA_LEDGER_OP_FIND_OR_CREATE ||
                 operation == CMA_LEDGER_OP_FIND_AND_REMOVE) {
+
+                if (operation == CMA_LEDGER_OP_FIND && asset_type == CMA_LEDGER_ASSET_TYPE_BASE && base_asset_id_defined) {
+                    *asset_id = base_asset_id;
+                }
                 if (find_asset(*asset_id, &asset_type, token_address, token_id, out_total_supply)) {
                     if (operation == CMA_LEDGER_OP_FIND_AND_REMOVE) {
                         remove_asset(*asset_id);
@@ -874,6 +887,9 @@ void cma_ledger_memory::retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                 if (next_asset_id >= max_assets) {
                     throw CmaException("Max assets reached", CMA_LEDGER_ERROR_MAX_ASSETS_REACHED);
                 }
+                if (asset_type == CMA_LEDGER_ASSET_TYPE_BASE && base_asset_id_defined) {
+                    throw CmaException("Base asset already inserted", CMA_LEDGER_ERROR_INSERTION_ERROR);
+                }
                 auto *new_asset = new cma_ledger_asset_struct_t();
                 new_asset->type = asset_type;
                 const std::pair<lassid_to_asset_t::iterator, bool> insertion_result =
@@ -885,6 +901,10 @@ void cma_ledger_memory::retrieve_asset(cma_ledger_asset_id_t *asset_id, cma_toke
                 }
 
                 *asset_id = next_asset_id;
+                if (asset_type == CMA_LEDGER_ASSET_TYPE_BASE && !base_asset_id_defined) {
+                    base_asset_id = *asset_id;
+                    base_asset_id_defined = true;
+                }
                 next_asset_id++;
             }
             break;
@@ -1273,9 +1293,10 @@ void cma_ledger_memory::get_account_asset_balance(cma_ledger_asset_id_t asset_id
             return;
         }
         account_balance_info->balance = find_result->second.withdrawable_balance.get();
-        account_balance_info->offset =
-            reinterpret_cast<char *>(balances.data()) - reinterpret_cast<char *>(m_memory.get_address());
         account_balance_info->index = find_result->second.withdrawable_balance.get() - balances.data();
+        account_balance_info->offset =
+            reinterpret_cast<char *>(balances.data()) - reinterpret_cast<char *>(m_memory.get_address()) +
+            account_balance_info->index * sizeof(cma_ledger_account_balance_t);
     }
 }
 
@@ -1588,4 +1609,12 @@ void cma_ledger_memory::transfer(cma_ledger_asset_id_t asset_id, cma_ledger_acco
     if (m_region.get_address() != nullptr) {
         m_region.flush();
     }
+}
+
+auto cma_ledger_memory::get_balances() -> balance_list_t * {
+    return &balances;
+}
+
+auto cma_ledger_memory::get_memory_address() -> void * {
+    return m_memory.get_address();
 }

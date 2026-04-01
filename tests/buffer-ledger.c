@@ -109,6 +109,42 @@ void test_asset_id(void) {
     printf("%s passed\n", __FUNCTION__);
 }
 
+void test_asset_base(void) {
+    uint8_t *buffer = malloc(MEM_LENGTH);
+    assert(buffer != NULL);
+    cma_ledger_t ledger;
+    assert(cma_ledger_init_buffer(&ledger, buffer, MEM_LENGTH, MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES) ==
+        CMA_LEDGER_SUCCESS);
+
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
+    assert(cma_ledger_retrieve_asset(&ledger, NULL, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) == -EINVAL);
+
+    cma_ledger_asset_id_t asset_id = 0;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) ==
+        CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
+        CMA_LEDGER_SUCCESS);
+
+    assert(asset_id == 0);
+
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
+        CMA_LEDGER_ERROR_INSERTION_ERROR);
+
+    asset_id += 2;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) ==
+        CMA_LEDGER_SUCCESS);
+    assert(asset_id == 0);
+
+    asset_id += 2;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE) ==
+        CMA_LEDGER_ERROR_INSERTION_ERROR);
+
+    assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
+    free(buffer);
+    buffer = NULL;
+    printf("%s passed\n", __FUNCTION__);
+}
 void test_asset_with_token_address(void) {
     uint8_t *buffer = malloc(MEM_LENGTH);
     assert(buffer != NULL);
@@ -677,7 +713,7 @@ void test_remove(void) {
 }
 
 void test_balance_mem(void) {
-    const size_t buf_size = CMA_LEDGER_MIN_MEM_LENGTH + 4276;
+    const size_t buf_size = CMA_LEDGER_MIN_MEM_LENGTH + 4340;
     uint8_t *buffer = malloc(buf_size);
     assert(buffer != NULL);
     cma_ledger_t ledger;
@@ -827,7 +863,7 @@ void test_asset_total_supply_balance(void) {
     assert(cma_ledger_init_buffer(&ledger,buffer,MEM_LENGTH,MAX_ACCOUNTS,MAX_ASSETS,MAX_BALANCES) == CMA_LEDGER_SUCCESS);
 
     cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
     cma_amount_t out_total_supply = {};
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, &out_total_supply, &asset_type, CMA_LEDGER_OP_CREATE) ==
         CMA_LEDGER_SUCCESS);
@@ -889,7 +925,7 @@ void test_deposit(void) {
         CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
 
     cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
         CMA_LEDGER_SUCCESS);
 
@@ -995,7 +1031,7 @@ void test_withdraw(void) {
         CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
 
     cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
         CMA_LEDGER_SUCCESS);
 
@@ -1099,7 +1135,7 @@ void test_transfer(void) {
         CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
 
     cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_CREATE) ==
         CMA_LEDGER_SUCCESS);
 
@@ -1188,6 +1224,7 @@ int main(void) {
     test_init_and_fini();
     test_init_and_reset();
     test_asset_id();
+    test_asset_base();
     test_asset_with_token_address();
     test_asset_with_token_address_and_id();
     test_account_id();

@@ -208,6 +208,8 @@ private:
     balance_key_list_t &last_virtual_balances;
     cma_ledger_asset_id_t &next_asset_id;
     cma_ledger_account_id_t &next_account_id;
+    cma_ledger_asset_id_t &base_asset_id;
+    bool &base_asset_id_defined;
 
 public:
     cma_ledger_memory(interprocess::open_only_t mode, const char *memory_file_name, size_t offset, size_t mem_length,
@@ -246,6 +248,9 @@ public:
         const cma_amount_t &withdrawal) override;
     void transfer(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t from_account_id,
         cma_ledger_account_id_t to_account_id, const cma_amount_t &amount) override;
+
+    auto get_balances() -> balance_list_t *;
+    auto get_memory_address() -> void*;
 };
 
 #endif // CMA_LEDGER_IMPL_H

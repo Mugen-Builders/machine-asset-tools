@@ -8,11 +8,13 @@ TOOLS_DEB ?= build/_deb/machine-asset-tools_riscv64.deb
 TOOLS_TAR_NAME ?= build/_tar/machine-asset-tools
 BOOST_VERSION ?= 1.90.0
 BOOST_VERSION_U := $(subst .,_,$(BOOST_VERSION))
+MACHINE_EMULATOR_VERSION ?= 0.19.0
 
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
 AR := $(TOOLCHAIN_PREFIX)ar
 
+third_party_DIR := third-party
 INCLUDE_FLAGS = -Iinclude -I$(third_party_DIR)
 
 CFLAGS += -Wvla -O2 -g -Wall -Wextra \
@@ -66,15 +68,17 @@ endif
 
 #-------------------------------------------------------------------------------
 
-libcma_SRC := \
-	src/ledger.cpp \
+ledger_SRC := \
 	src/ledger_impl.cpp \
-	src/parser.cpp \
-	src/parser_impl.cpp \
+	src/ledger.cpp \
 	src/utils.cpp
 
+parser_SRC := \
+	src/parser.cpp \
+	src/parser_impl.cpp \
+
 libcma_OBJDIR    := build/riscv64
-libcma_OBJ       := $(patsubst %.cpp,$(libcma_OBJDIR)/%.o,$(libcma_SRC))
+libcma_OBJ       := $(patsubst %.cpp,$(libcma_OBJDIR)/%.o,$(ledger_SRC) $(parser_SRC))
 libcma_LIB       := $(libcma_OBJDIR)/libcma.a
 libcma_SO        := $(libcma_OBJDIR)/libcma.so
 
@@ -90,23 +94,112 @@ $(libcma_SO): $(libcma_OBJ)
 
 libcma: $(libcma_LIB) $(libcma_SO)
 
-third_party_DIR := third_party
+#-------------------------------------------------------------------------------
+
+third_party_download_DIR := $(third_party_DIR)/downloads
 boost_LIB       := $(third_party_DIR)/boost
+tiny_sha3_LIB   := $(third_party_DIR)/tiny_sha3
+emulator_LIB    := $(third_party_DIR)/machine-emulator
 
-third_party_LIBS := $(boost_LIB)
+third_party_LIBS := $(boost_LIB) $(tiny_sha3_LIB) $(emulator_LIB)
 
-third-party: $(third_party_DIR) $(third_party_LIBS)
+third-party: $(third_party_LIBS)
 
-$(third_party_DIR):
+third_party_DIR:
 	mkdir -p $(third_party_DIR)
 
-third-party-boost: $(boost_LIB)
-$(boost_LIB): $(third_party_DIR) /tmp/boost_$(BOOST_VERSION_U).tar.gz
-	tar zxvf /tmp/boost_$(BOOST_VERSION_U).tar.gz --strip-components 1 -C $(third_party_DIR) boost_$(BOOST_VERSION_U)/boost
-	rm /tmp/boost_$(BOOST_VERSION_U).tar.gz
+$(third_party_download_DIR):
+	mkdir -p $(third_party_download_DIR)
 
-/tmp/boost_$(BOOST_VERSION_U).tar.gz:
-	wget https://archives.boost.io/release/$(BOOST_VERSION)/source/boost_$(BOOST_VERSION_U).tar.gz -O /tmp/boost_$(BOOST_VERSION_U).tar.gz
+third-party-boost: $(boost_LIB)
+$(boost_LIB): third_party_DIR $(third_party_download_DIR)/boost_$(BOOST_VERSION_U).tar.gz
+	tar zxvf $(third_party_download_DIR)/boost_$(BOOST_VERSION_U).tar.gz --strip-components 1 -C $(third_party_DIR) boost_$(BOOST_VERSION_U)/boost
+
+$(third_party_download_DIR)/boost_$(BOOST_VERSION_U).tar.gz: $(third_party_download_DIR)
+	wget https://archives.boost.io/release/$(BOOST_VERSION)/source/boost_$(BOOST_VERSION_U).tar.gz -O $(third_party_download_DIR)/boost_$(BOOST_VERSION_U).tar.gz
+
+emulator_tar_FILES	:= complete-merkle-tree.cpp pristine-merkle-tree.cpp complete-merkle-tree.h pristine-merkle-tree.h i-hasher.h keccak-256-hasher.h meta.h merkle-tree-proof.h
+emulator_SRCPATH 	:= machine-emulator-$(MACHINE_EMULATOR_VERSION)/src
+emulator_FILES  	:= $(patsubst %,$(emulator_SRCPATH)/%,$(emulator_tar_FILES))
+emulator_misc_src_FILES := complete-merkle-tree.cpp complete-merkle-tree.h concepts.h hash-tree-proof.h i-hasher.h keccak-256-hasher.h machine-hash.h pristine-merkle-tree.cpp pristine-merkle-tree.h
+emulator_misc_FILES := $(patsubst %,misc/%,$(emulator_misc_src_FILES))
+emulator_SRC		:= complete-merkle-tree.cpp pristine-merkle-tree.cpp
+
+third-party-emulator: $(emulator_LIB)
+$(emulator_LIB): third_party_DIR $(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz
+	mkdir -p $(emulator_LIB)
+	# tar zxvf $(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz --strip-components 2 -C $(emulator_LIB) $(emulator_FILES)
+	cp -t $(emulator_LIB) $(emulator_misc_FILES)
+
+$(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz: $(third_party_download_DIR)
+	wget https://github.com/cartesi/machine-emulator/archive/refs/tags/v$(MACHINE_EMULATOR_VERSION).tar.gz -O $(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz
+
+tiny_sha3_HEADERS 	:= sha3.h
+tiny_sha3_SRC 		:= sha3.c
+tiny_sha3_SRCPATH 	:= tiny_sha3-master
+tiny_sha3_FILES     := $(patsubst %,$(tiny_sha3_SRCPATH)/%,$(tiny_sha3_SRC) $(tiny_sha3_HEADERS))
+tiny_sha3_emulator_SRCPATH 	:= machine-emulator-$(MACHINE_EMULATOR_VERSION)/third-party/tiny_sha3
+tiny_sha3_emulator_FILES     := $(patsubst %,$(tiny_sha3_emulator_SRCPATH)/%,$(tiny_sha3_SRC) $(tiny_sha3_HEADERS))
+
+third-party-tiny-sha3: $(tiny_sha3_LIB)
+$(tiny_sha3_LIB): third_party_DIR $(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz
+	mkdir -p $(tiny_sha3_LIB)
+	tar zxvf $(third_party_download_DIR)/machine-emulator_$(MACHINE_EMULATOR_VERSION).tar.gz --strip-components 3 -C $(tiny_sha3_LIB) $(tiny_sha3_emulator_FILES)
+
+# $(tiny_sha3_LIB): third_party_DIR $(third_party_download_DIR)/tiny_sha3.zip
+# 	unzip -f -j $(third_party_download_DIR)/tiny_sha3.zip $(tiny_sha3_FILES) -d $(tiny_sha3_LIB)
+# $(third_party_download_DIR)/tiny_sha3.zip: $(third_party_download_DIR)
+# 	wget https://github.com/mjosaarinen/tiny_sha3/archive/refs/heads/master.zip -O $(third_party_download_DIR)/tiny_sha3.zip
+
+#-------------------------------------------------------------------------------
+
+# CXXFLAGS = -MMD --std=c++23 -O2 -Wall -pedantic $(INC)
+# CFLAGS = -MMD -O2 -Wall -pedantic $(INC)
+
+tools_OBJDIR    := build/tools
+tools_SRC := \
+	tools/account-driver-reader.cpp
+
+SHA3_INC = -I$(tiny_sha3_LIB)
+EMULATOR_INC = -I$(emulator_LIB)
+
+TOOLS_INC = $(SHA3_INC) $(EMULATOR_INC)
+
+SHA3_SRC     := $(patsubst %,$(tiny_sha3_LIB)/%,$(tiny_sha3_SRC))
+SHA3_OBJ     := $(patsubst %.c,$(tools_OBJDIR)/%.o,$(SHA3_SRC))
+EMULATOR_SRC := $(patsubst %,$(emulator_LIB)/%,$(emulator_SRC))
+EMULATOR_OBJ := $(patsubst %.cpp,$(tools_OBJDIR)/%.o,$(EMULATOR_SRC))
+
+$(SHA3_SRC): $(tiny_sha3_LIB)
+$(EMULATOR_SRC): $(emulator_LIB)
+
+$(tools_OBJDIR)/%.o: %.cpp
+	mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(TOOLS_INC) -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
+
+$(tools_OBJDIR)/%.o: %.c
+	mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(TOOLS_INC) -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
+
+tools_OBJDIR    := build/tools
+tools_OBJ        := $(patsubst %.cpp,$(tools_OBJDIR)/%.o,$(tools_SRC))
+
+$(tools_OBJ): $(tools_OBJDIR)/%.o: %.cpp
+	mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(TOOLS_INC) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) $(DEFS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
+
+ADREADER_OBJ = $(tools_OBJDIR)/account-driver-reader.o
+SRC_INC = -Isrc
+
+ledger_OBJ       := $(patsubst %.cpp,$(libcma_OBJDIR)/%.o,$(ledger_SRC))
+
+$(ADREADER_OBJ): $(tools_OBJDIR)/%.o: tools/%.cpp
+	mkdir -p $(@D)
+	$(CXX) -std=c++23 $(INCLUDE_FLAGS) $(WARN_CXXFLAGS) $(OPT_CXXFLAGS) $(TOOLS_INC) $(SRC_INC) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) $(DEFS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
+
+account-driver-reader: $(ADREADER_OBJ) $(SHA3_OBJ) $(EMULATOR_OBJ) $(ledger_OBJ)
+	$(CXX) -o $(tools_OBJDIR)/$@ $^
+
 
 #-------------------------------------------------------------------------------
 
