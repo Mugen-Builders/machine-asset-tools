@@ -1,6 +1,7 @@
 #ifndef CMA_UTILS_H
 #define CMA_UTILS_H
 
+#include <cstring> // for string class
 #include <exception>
 #include <string> // for string class
 
@@ -10,6 +11,7 @@ extern "C" {
 
 auto amount_checked_add(cma_amount_t &res, const cma_amount_t &amount_a, const cma_amount_t &amount_b) -> bool;
 auto amount_checked_sub(cma_amount_t &res, const cma_amount_t &amount_a, const cma_amount_t &amount_b) -> bool;
+auto is_zero(const cma_amount_t &amount) -> bool;
 
 // Custom exception class
 class CmaException : public std::exception {

@@ -1,5 +1,6 @@
 #ifndef CMA_LEDGER_H
 #define CMA_LEDGER_H
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -14,7 +15,8 @@ extern "C" {
 #include "types.h"
 
 enum {
-    CMA_LEDGER_T_SIZE = 152 / 8,
+    CMA_LEDGER_T_SIZE = 512, // / 8,
+    CMA_LEDGER_MIN_MEM_LENGTH = 262144,
 };
 
 typedef struct cma_ledger_struct {
@@ -31,26 +33,31 @@ enum {
     CMA_LEDGER_ERROR_INSUFFICIENT_FUNDS = -1003,
     CMA_LEDGER_ERROR_ACCOUNT_NOT_FOUND = -1004,
     CMA_LEDGER_ERROR_ASSET_NOT_FOUND = -1005,
-    CMA_LEDGER_ERROR_SUPPLY_OVERFLOW = -1006,
-    CMA_LEDGER_ERROR_BALANCE_OVERFLOW = -1007,
-    CMA_LEDGER_ERROR_INVALID_ACCOUNT = -1008,
-    CMA_LEDGER_ERROR_INSERTION_ERROR = -1009,
-    CMA_LEDGER_ERROR_MAX_ASSETS_REACHED = -1010,
-    CMA_LEDGER_ERROR_MAX_ACCOUNTS_REACHED = -1011,
+    CMA_LEDGER_ERROR_BALANCE_NOT_FOUND = -1006,
+    CMA_LEDGER_ERROR_SUPPLY_OVERFLOW = -1007,
+    CMA_LEDGER_ERROR_BALANCE_OVERFLOW = -1008,
+    CMA_LEDGER_ERROR_INVALID_ACCOUNT = -1009,
+    CMA_LEDGER_ERROR_INSERTION_ERROR = -1010,
+    CMA_LEDGER_ERROR_MAX_ASSETS_REACHED = -1011,
+    CMA_LEDGER_ERROR_MAX_ACCOUNTS_REACHED = -1012,
+    CMA_LEDGER_ERROR_MAX_BALANCES_REACHED = -1013,
+    CMA_LEDGER_ERROR_ASSET_SUPPLY = -1014,
+    CMA_LEDGER_ERROR_ACCOUNT_BALANCE = -1015,
+    CMA_LEDGER_ERROR_REMOVE = -1016,
 };
 
 typedef enum {
     CMA_LEDGER_OP_FIND,
     CMA_LEDGER_OP_CREATE,
     CMA_LEDGER_OP_FIND_OR_CREATE,
-    // CMA_LEDGER_OP_FIND_AND_REMOVE,
+    CMA_LEDGER_OP_FIND_AND_REMOVE,
 } cma_ledger_retrieve_operation_t;
 
 typedef enum {
     CMA_LEDGER_ASSET_TYPE_ID,
+    CMA_LEDGER_ASSET_TYPE_BASE,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS,
     CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID,
-    // CMA_LEDGER_ASSET_TYPE_BASE,
 } cma_ledger_asset_type_t;
 
 typedef enum {
@@ -81,43 +88,48 @@ typedef struct cma_ledger_account {
 typedef struct cma_ledger_account_balance {
     uint32_t type;
     cma_abi_address_t owner;
-    cma_token_address_t token;
+    cma_token_address_t token_address;
     cma_token_id_t token_id;
-    cma_amount_t balance;
-    uint8_t padding[12]; // Align to 4*32 bytes
+    cma_amount_t amount;
+    uint8_t padding[20]; // Align to 4*32 bytes
 } cma_ledger_account_balance_t;
+
+typedef struct cma_ledger_account_balance_info {
+    ptrdiff_t offset;
+    size_t index;
+    cma_ledger_account_balance_t *balance;
+} cma_ledger_account_balance_info_t;
 
 CMA_LEDGER_API int cma_ledger_init(cma_ledger_t *ledger);
 CMA_LEDGER_API int cma_ledger_fini(cma_ledger_t *ledger);
 CMA_LEDGER_API int cma_ledger_reset(cma_ledger_t *ledger);
 
 CMA_LEDGER_API int cma_ledger_init_file(cma_ledger_t *ledger, const char *memory_file_name,
-    cma_ledger_memory_mode_t mode, size_t offset, size_t mem_length,
-    size_t n_accounts, size_t n_assets, size_t n_balances);
+    cma_ledger_memory_mode_t mode, size_t offset, size_t mem_length, size_t n_accounts, size_t n_assets,
+    size_t n_balances);
 
-CMA_LEDGER_API int cma_ledger_init_buffer(cma_ledger_t *ledger, void *buffer,
-    size_t mem_length,
-    size_t n_accounts, size_t n_assets, size_t n_balances);
+CMA_LEDGER_API int cma_ledger_init_buffer(cma_ledger_t *ledger, void *buffer, size_t mem_length, size_t n_accounts,
+    size_t n_assets, size_t n_balances);
 
 // Retrieve/create an asset
 // try to retrieve: If id is defined, fill with the asset details, otherwise fill with id
 // If it didn't find  the asset and creation type is set with one of the options, create it
 // update the token asset_id <-> (address, token id) mapping
 CMA_LEDGER_API int cma_ledger_retrieve_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t *asset_id,
-    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_ledger_asset_type_t *asset_type,
-    cma_ledger_retrieve_operation_t operation);
+    cma_token_address_t *token_address, cma_token_id_t *token_id, cma_amount_t *out_total_supply,
+    cma_ledger_asset_type_t *asset_type, cma_ledger_retrieve_operation_t operation);
 
 // Retrieve/create an account
 // try to retrieve: If id is defined, fill with the account details, otherwise fill with id
 // If it didn't find  the account and creation type is set with one of the options, create it
 // update the token id <-> account_id mapping
 CMA_LEDGER_API int cma_ledger_retrieve_account(cma_ledger_t *ledger, cma_ledger_account_id_t *account_id,
-    cma_ledger_account_t *account, const void *addr_accid, cma_ledger_account_type_t *account_type,
+    cma_ledger_account_t *account, const void *addr_accid, size_t *n_balances, cma_ledger_account_type_t *account_type,
     cma_ledger_retrieve_operation_t operation);
 
 // Deposit
 CMA_LEDGER_API int cma_ledger_deposit(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
-    cma_ledger_account_id_t to_account_id, const cma_amount_t *deposit);
+    cma_ledger_account_id_t to_accountcma_ledger_account_balance_t_id, const cma_amount_t *deposit);
 
 // Withdrawal
 CMA_LEDGER_API int cma_ledger_withdraw(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
@@ -129,11 +141,8 @@ CMA_LEDGER_API int cma_ledger_transfer(cma_ledger_t *ledger, cma_ledger_asset_id
 
 // Get balance
 CMA_LEDGER_API int cma_ledger_get_balance(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
-    cma_ledger_account_id_t account_id, cma_amount_t *out_balance);
-
-// Get total supply
-CMA_LEDGER_API int cma_ledger_get_total_supply(cma_ledger_t *ledger, cma_ledger_asset_id_t asset_id,
-    cma_amount_t *out_total_supply);
+    cma_ledger_account_id_t account_id, cma_amount_t *out_balance,
+    cma_ledger_account_balance_info_t *account_balance_info);
 
 // get error message
 CMA_LEDGER_API const char *cma_ledger_get_last_error_message();

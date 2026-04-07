@@ -27,11 +27,12 @@ extern "C" {
 #define CONFIG_ERC1155_SINGLE_PORTAL_ADDRESS {0x18, 0x55, 0x83, 0x98, 0xdd, 0x1a, 0x8c, 0xe2, 0x9, 0x56, 0x28, 0x7a, 0x4d, 0xa7, 0xb7, 0x6a, 0xe7, 0xa9, 0x66, 0x62}
 #define CONFIG_ERC1155_BATCH_PORTAL_ADDRESS {0xe2, 0x46, 0xab, 0xb9, 0x74, 0xb3, 0x7, 0x49, 0xd, 0x9c, 0x69, 0x32, 0xf4, 0x8e, 0xbe, 0x79, 0xde, 0x72, 0x33, 0x8a}
 
+#define LEDGER_OFFSET 0UL
 #define ASSETS_PER_ACCOUNT 8        //< Average of positions for an account.
 #define MAX_ACCOUNTS 16UL * 1024    //< Maximum number of accounts.
-#define MAX_ASSETS 256UL            //< Maximum number of assets.
+#define MAX_ASSETS 8UL            //< Maximum number of assets.
 #define MAX_BALANCES ASSETS_PER_ACCOUNT * MAX_ACCOUNTS  //< Maximum number of balances.
-#define MEMORY_SIZE 27999296UL //33554432UL//< State file size
+#define MEMORY_SIZE 64UL * 1024 * 1024 - LEDGER_OFFSET //33554432UL//< State file size
 
 ////////////////////////////////////////////////////////////////////////////////
 // Abi utilities.
@@ -176,14 +177,14 @@ auto process_get_balance(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_account
         lass_id = get_ether_id_storage();
     } else if (token_id == nullptr) {
         cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
+        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, nullptr, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
         if (err != CMA_LEDGER_SUCCESS) {
             throw AppException(std::string("unable to retrieve asset: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
         }
     } else {
         cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
-        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, token_id, &asset_type, CMA_LEDGER_OP_FIND);
+        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
         if (err != CMA_LEDGER_SUCCESS) {
             throw AppException(std::string("unable to retrieve asset: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -193,7 +194,7 @@ auto process_get_balance(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_account
     // get account
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t asset_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
-    err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, account, &asset_type, CMA_LEDGER_OP_FIND);
+    err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, account, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -201,7 +202,7 @@ auto process_get_balance(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_account
 
     // get token balance
     cma_amount_t out_balance = {};
-    err = cma_ledger_get_balance(ledger, lass_id, lacc_id, &out_balance);
+    err = cma_ledger_get_balance(ledger, lass_id, lacc_id, &out_balance, nullptr);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve token balance: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -216,30 +217,22 @@ auto process_get_total_supply(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_to
 
     // get asset
     cma_ledger_asset_id_t lass_id;
+    cma_ledger_asset_type_t asset_type;
 
     if (token == nullptr) {
         lass_id = get_ether_id_storage();
+        asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
     } else if (token_id == nullptr) {
-        cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
-        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
-        if (err != CMA_LEDGER_SUCCESS) {
-            throw AppException(std::string("unable to retrieve asset: ")
-                .append(cma_ledger_get_last_error_message()).c_str(), err);
-        }
+        asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
     } else {
-        cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
-        err = cma_ledger_retrieve_asset(ledger, &lass_id, token, token_id, &asset_type, CMA_LEDGER_OP_FIND);
-        if (err != CMA_LEDGER_SUCCESS) {
-            throw AppException(std::string("unable to retrieve asset: ")
-                .append(cma_ledger_get_last_error_message()).c_str(), err);
-        }
+        asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     }
 
     // get token supply
     cma_amount_t out_supply = {};
-    err = cma_ledger_get_total_supply(ledger, lass_id, &out_supply);
+    err = cma_ledger_retrieve_asset(ledger, &lass_id, token, token_id, &out_supply, &asset_type, CMA_LEDGER_OP_FIND);
     if (err != CMA_LEDGER_SUCCESS) {
-        throw AppException(std::string("unable to retrieve token supply: ")
+        throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
 
@@ -330,7 +323,7 @@ auto process_ether_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) ->
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &parser_input.ether_deposit.sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -368,7 +361,7 @@ auto process_erc20_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) ->
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input.erc20_deposit.token, nullptr,
-               &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+               nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -379,7 +372,7 @@ auto process_erc20_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) ->
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &parser_input.erc20_deposit.sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -423,7 +416,7 @@ auto process_erc721_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) -
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input.erc721_deposit.token,
-            &parser_input.erc721_deposit.token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+            &parser_input.erc721_deposit.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -434,7 +427,7 @@ auto process_erc721_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *input) -
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &parser_input.erc721_deposit.sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -476,7 +469,7 @@ auto process_erc1155_single_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input.erc1155_single_deposit.token,
-            &parser_input.erc1155_single_deposit.token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+            &parser_input.erc1155_single_deposit.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -487,7 +480,7 @@ auto process_erc1155_single_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &parser_input.erc1155_single_deposit.sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -534,7 +527,7 @@ auto process_erc1155_batch_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *i
     cma_ledger_account_id_t lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &parser_input.erc1155_batch_deposit.sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -548,7 +541,7 @@ auto process_erc1155_batch_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *i
         std::ignore = std::copy_n(std::begin(parser_input.erc1155_batch_deposit.token_ids.data[t]), CMA_ABI_U256_LENGTH,
             std::begin(token_id.data));
         err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input.erc1155_batch_deposit.token,
-                &token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+                &token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
         if (err != CMA_LEDGER_SUCCESS) {
             throw AppException(std::string("unable to retrieve asset: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -630,7 +623,7 @@ auto process_erc20_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger_
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
     int err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc20_withdrawal.token, nullptr,
-               &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+               nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -677,7 +670,7 @@ auto process_erc721_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     int err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc721_withdrawal.token,
-        &parser_input->erc721_withdrawal.token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        &parser_input->erc721_withdrawal.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -724,7 +717,7 @@ auto process_erc1155_single_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cm
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     int err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_single_withdrawal.token,
-        &parser_input->erc1155_single_withdrawal.token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        &parser_input->erc1155_single_withdrawal.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -779,7 +772,7 @@ auto process_erc1155_batch_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma
         std::ignore = std::copy_n(std::begin(parser_input->erc1155_batch_withdrawal.token_ids.data[t]), CMA_ABI_U256_LENGTH,
             std::begin(token_id.data));
         err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_batch_withdrawal.token,
-            &token_id, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+            &token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
         if (err != CMA_LEDGER_SUCCESS) {
             throw AppException(std::string("unable to retrieve asset: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -839,7 +832,7 @@ auto process_ether_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_i
     cma_ledger_account_t account_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     int err = cma_ledger_retrieve_account(ledger, &receiver_lacc_id, &account_id, &parser_input->ether_transfer.receiver.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve receiver account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -868,7 +861,7 @@ auto process_erc20_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_i
     cma_ledger_account_id_t receiver_lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     int err = cma_ledger_retrieve_account(ledger, &receiver_lacc_id, nullptr, &parser_input->erc20_transfer.receiver.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve receiver account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -878,7 +871,7 @@ auto process_erc20_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_i
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc20_transfer.token, nullptr,
-               &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+               nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -901,7 +894,7 @@ auto process_erc721_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_
     cma_ledger_account_id_t receiver_lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     int err = cma_ledger_retrieve_account(ledger, &receiver_lacc_id, nullptr, &parser_input->erc721_transfer.receiver.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve receiver account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -911,7 +904,7 @@ auto process_erc721_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc721_transfer.token, &parser_input->erc721_transfer.token_id,
-               &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+               nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -934,7 +927,7 @@ auto process_erc1155_single_transfer(cma_ledger_t *ledger, cma_ledger_account_id
     cma_ledger_account_id_t receiver_lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     int err = cma_ledger_retrieve_account(ledger, &receiver_lacc_id, nullptr, &parser_input->erc1155_single_transfer.receiver.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve receiver account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -944,7 +937,7 @@ auto process_erc1155_single_transfer(cma_ledger_t *ledger, cma_ledger_account_id
     cma_ledger_asset_id_t lass_id;
     cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_single_transfer.token, &parser_input->erc1155_single_transfer.token_id,
-               &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+               nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve asset: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -967,7 +960,7 @@ auto process_erc1155_batch_transfer(cma_ledger_t *ledger, cma_ledger_account_id_
     cma_ledger_account_id_t receiver_lacc_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
     int err = cma_ledger_retrieve_account(ledger, &receiver_lacc_id, nullptr, &parser_input->erc1155_batch_transfer.receiver.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve receiver account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -982,7 +975,7 @@ auto process_erc1155_batch_transfer(cma_ledger_t *ledger, cma_ledger_account_id_
         std::ignore = std::copy_n(std::begin(parser_input->erc1155_batch_transfer.token_ids.data[t]), CMA_ABI_U256_LENGTH,
             std::begin(token_id.data));
         err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_batch_transfer.token, &token_id,
-                &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+                nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
         if (err != CMA_LEDGER_SUCCESS) {
             throw AppException(std::string("unable to retrieve asset: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -1016,7 +1009,7 @@ auto process_advance(cmt_rollup_t *rollup, cma_ledger_t *ledger, cmt_rollup_adva
     cma_ledger_account_t account_id;
     cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_WALLET_ADDRESS;
     err = cma_ledger_retrieve_account(ledger, &lacc_id, &account_id, &input->msg_sender.data,
-        &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -1161,7 +1154,7 @@ auto main(int argc, char* argv[]) -> int {
     cma_ledger_t ledger;
     // int err = cma_ledger_init(&ledger);
     int err = cma_ledger_init_file(&ledger, argv[1],
-        memory_mode, 0, MEMORY_SIZE,
+        memory_mode, LEDGER_OFFSET, MEMORY_SIZE,
         MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES);
     if (err != CMA_LEDGER_SUCCESS) {
         std::ignore = std::fprintf(stderr, "[app] unable to Initialize ledger: (%d) %s\n", err, cma_ledger_get_last_error_message());
@@ -1179,8 +1172,8 @@ auto main(int argc, char* argv[]) -> int {
 
     // create ether asset in ledger lib
     cma_ledger_asset_id_t asset_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
-    err = cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, &asset_type,
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_BASE;
+    err = cma_ledger_retrieve_asset(&ledger, &asset_id, NULL, NULL, nullptr, &asset_type,
                CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
         std::ignore = std::fprintf(stderr, "[app] unable to create ether asset: (%d) %s\n", err, cma_ledger_get_last_error_message());
@@ -1223,6 +1216,7 @@ auto main(int argc, char* argv[]) -> int {
                 return -1;
             }
             umask(original_umask);
+            sync();
         }
         // Always continue, despite request failing or not.
         accept_previous_request =

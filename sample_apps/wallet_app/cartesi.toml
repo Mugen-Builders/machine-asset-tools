@@ -21,6 +21,6 @@ buildx = true
 
 [drives.state]
 builder = "raw"
-length = "32Mb"
+length = "64Mb"
 user = "dapp"
 mount = "false"
