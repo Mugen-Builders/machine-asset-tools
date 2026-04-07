@@ -27,11 +27,12 @@ extern "C" {
 #define CONFIG_ERC1155_SINGLE_PORTAL_ADDRESS {0x18, 0x55, 0x83, 0x98, 0xdd, 0x1a, 0x8c, 0xe2, 0x9, 0x56, 0x28, 0x7a, 0x4d, 0xa7, 0xb7, 0x6a, 0xe7, 0xa9, 0x66, 0x62}
 #define CONFIG_ERC1155_BATCH_PORTAL_ADDRESS {0xe2, 0x46, 0xab, 0xb9, 0x74, 0xb3, 0x7, 0x49, 0xd, 0x9c, 0x69, 0x32, 0xf4, 0x8e, 0xbe, 0x79, 0xde, 0x72, 0x33, 0x8a}
 
+#define LEDGER_OFFSET 0UL
 #define ASSETS_PER_ACCOUNT 8        //< Average of positions for an account.
 #define MAX_ACCOUNTS 16UL * 1024    //< Maximum number of accounts.
 #define MAX_ASSETS 8UL            //< Maximum number of assets.
 #define MAX_BALANCES ASSETS_PER_ACCOUNT * MAX_ACCOUNTS  //< Maximum number of balances.
-#define MEMORY_SIZE 64UL * 1024 * 1024 //33554432UL//< State file size
+#define MEMORY_SIZE 64UL * 1024 * 1024 - LEDGER_OFFSET //33554432UL//< State file size
 
 ////////////////////////////////////////////////////////////////////////////////
 // Abi utilities.
@@ -1153,7 +1154,7 @@ auto main(int argc, char* argv[]) -> int {
     cma_ledger_t ledger;
     // int err = cma_ledger_init(&ledger);
     int err = cma_ledger_init_file(&ledger, argv[1],
-        memory_mode, 0, MEMORY_SIZE,
+        memory_mode, LEDGER_OFFSET, MEMORY_SIZE,
         MAX_ACCOUNTS, MAX_ASSETS, MAX_BALANCES);
     if (err != CMA_LEDGER_SUCCESS) {
         std::ignore = std::fprintf(stderr, "[app] unable to Initialize ledger: (%d) %s\n", err, cma_ledger_get_last_error_message());
@@ -1215,6 +1216,7 @@ auto main(int argc, char* argv[]) -> int {
                 return -1;
             }
             umask(original_umask);
+            sync();
         }
         // Always continue, despite request failing or not.
         accept_previous_request =

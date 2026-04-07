@@ -184,20 +184,22 @@ private:
         interprocess::unordered_node_map<cma_ledger_account_key_bytes_t, cma_ledger_account_id_t>;
     using account_asset_map_t = interprocess::unordered_node_map<cma_map_key_t, cma_balance_t, hash_pair>;
 
-    using balance_list_t = interprocess::vector<cma_ledger_account_balance_t>;
+    // using balance_list_t = cma_ledger_account_balance_t*;
     using virtual_balance_list_t = interprocess::vector<cma_ledger_account_virtual_balance_t>;
     using balance_key_list_t = interprocess::vector<cma_map_key_t>;
 
     size_t max_accounts;
     size_t max_assets;
     size_t max_balances;
+    size_t mem_offset;
 
     interprocess::file_mapping m_file;     ///< Mapped file containing the whole ledger state.
     interprocess::mapped_region m_region;  ///< Region of the mapped file containing the ledger state.
+    cma_ledger_account_balance_t* balances;
     interprocess::managed_memory m_memory; ///< Mapped memory containing the whole ledger state.
     interprocess::void_allocator &m_allocator;
 
-    balance_list_t &balances;
+    // balance_list_t &balances;
     virtual_balance_list_t &virtual_balances;
     lassid_to_asset_t &lassid_to_asset;
     asset_to_lassid_t &asset_to_lassid;
@@ -249,8 +251,9 @@ public:
     void transfer(cma_ledger_asset_id_t asset_id, cma_ledger_account_id_t from_account_id,
         cma_ledger_account_id_t to_account_id, const cma_amount_t &amount) override;
 
-    auto get_balances() -> balance_list_t *;
-    auto get_memory_address() -> void*;
+    auto get_balances() -> cma_ledger_account_balance_t *;
+    auto get_balances_size() -> size_t;
+    auto get_mem_offset() -> size_t;
 };
 
 #endif // CMA_LEDGER_IMPL_H

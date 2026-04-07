@@ -779,8 +779,7 @@ void test_balance_mem(void) {
     assert(memcmp(account_balance_info.balance->token_id.data, zero, CMA_ABI_ID_LENGTH) == 0);
     assert(memcmp(account_balance_info.balance->amount.data, amount.data, CMA_ABI_U256_LENGTH) == 0);
 
-    cma_ledger_account_balance_t *account_balance = (cma_ledger_account_balance_t *)(buffer + account_balance_info.offset +
-        sizeof(cma_ledger_account_balance_t) * account_balance_info.index);
+    cma_ledger_account_balance_t *account_balance = (cma_ledger_account_balance_t *)(buffer + account_balance_info.offset);
 
     assert(account_balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS);
     assert(memcmp(account_balance->owner.data, account1.address.data, CMA_ABI_ADDRESS_LENGTH) == 0);

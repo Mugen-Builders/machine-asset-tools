@@ -1282,21 +1282,21 @@ void test_transfer(void) {
 }
 
 int main(void) {
-    // test_init_and_fini();
-    // test_init_and_reset();
-    // test_init_and_load();
-    // test_asset_id();
-    // test_asset_base();
-    // test_asset_with_token_address();
-    // test_asset_with_token_address_and_id();
-    // test_account_id();
-    // test_account_address();
-    // test_account_full_id();
-    // test_asset_total_supply_balance();
-    // test_deposit();
-    // test_withdraw();
-    // test_transfer();
-    // test_remove();
+    test_init_and_fini();
+    test_init_and_reset();
+    test_init_and_load();
+    test_asset_id();
+    test_asset_base();
+    test_asset_with_token_address();
+    test_asset_with_token_address_and_id();
+    test_account_id();
+    test_account_address();
+    test_account_full_id();
+    test_asset_total_supply_balance();
+    test_deposit();
+    test_withdraw();
+    test_transfer();
+    test_remove();
     test_balance_mem();
     printf("All file-ledger tests passed!\n");
     return 0;

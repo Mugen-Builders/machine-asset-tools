@@ -9,6 +9,7 @@ TOOLS_TAR_NAME ?= build/_tar/machine-asset-tools
 BOOST_VERSION ?= 1.90.0
 BOOST_VERSION_U := $(subst .,_,$(BOOST_VERSION))
 MACHINE_EMULATOR_VERSION ?= 0.19.0
+MACHINE_GUEST_TOOLS_VERSION ?= 0.17.2
 
 CC := $(TOOLCHAIN_PREFIX)gcc
 CXX := $(TOOLCHAIN_PREFIX)g++
@@ -100,6 +101,7 @@ third_party_download_DIR := $(third_party_DIR)/downloads
 boost_LIB       := $(third_party_DIR)/boost
 tiny_sha3_LIB   := $(third_party_DIR)/tiny_sha3
 emulator_LIB    := $(third_party_DIR)/machine-emulator
+guesttools_LIB    := $(third_party_DIR)/libcmt
 
 third_party_LIBS := $(boost_LIB) $(tiny_sha3_LIB) $(emulator_LIB)
 
@@ -151,6 +153,18 @@ $(tiny_sha3_LIB): third_party_DIR $(third_party_download_DIR)/machine-emulator_$
 # $(third_party_download_DIR)/tiny_sha3.zip: $(third_party_download_DIR)
 # 	wget https://github.com/mjosaarinen/tiny_sha3/archive/refs/heads/master.zip -O $(third_party_download_DIR)/tiny_sha3.zip
 
+guesttools_tar_FILES:= include/libcmt/abi.h include/libcmt/buf.h include/libcmt/rollup.h include/libcmt/io.h include/libcmt/merkle.h include/libcmt/keccak.h
+guesttools_SRCPATH 	:= machine-guest-tools-$(MACHINE_GUEST_TOOLS_VERSION)/sys-utils/libcmt
+guesttools_FILES  	:= $(patsubst %,$(guesttools_SRCPATH)/%,$(guesttools_tar_FILES))
+
+third-party-guest-tools: $(guesttools_LIB)
+$(guesttools_LIB): third_party_DIR $(third_party_download_DIR)/machine-guest-tools_$(MACHINE_GUEST_TOOLS_VERSION).tar.gz
+	mkdir -p $(guesttools_LIB)
+	tar zxvf $(third_party_download_DIR)/machine-guest-tools_$(MACHINE_GUEST_TOOLS_VERSION).tar.gz --strip-components 5 -C $(guesttools_LIB) $(guesttools_FILES)
+
+$(third_party_download_DIR)/machine-guest-tools_$(MACHINE_GUEST_TOOLS_VERSION).tar.gz: $(third_party_download_DIR)
+	wget https://github.com/cartesi/machine-guest-tools/archive/refs/tags/v$(MACHINE_GUEST_TOOLS_VERSION).tar.gz -O $(third_party_download_DIR)/machine-guest-tools_$(MACHINE_GUEST_TOOLS_VERSION).tar.gz
+
 #-------------------------------------------------------------------------------
 
 # CXXFLAGS = -MMD --std=c++23 -O2 -Wall -pedantic $(INC)
@@ -198,7 +212,7 @@ $(ADREADER_OBJ): $(tools_OBJDIR)/%.o: tools/%.cpp
 	$(CXX) -std=c++23 $(INCLUDE_FLAGS) $(WARN_CXXFLAGS) $(OPT_CXXFLAGS) $(TOOLS_INC) $(SRC_INC) $(HARDEN_CXXFLAGS) $(LIBCMA_CFLAGS) $(DEFS) -MT $@ -MMD -MP -MF $(@:.o=.d) -c -o $@  $<
 
 account-driver-reader: $(ADREADER_OBJ) $(SHA3_OBJ) $(EMULATOR_OBJ) $(ledger_OBJ)
-	$(CXX) -o $(tools_OBJDIR)/$@ $^
+	$(CXX) -o $(tools_OBJDIR)/$@ $^ -lcartesi
 
 
 #-------------------------------------------------------------------------------

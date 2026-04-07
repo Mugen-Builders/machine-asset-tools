@@ -607,13 +607,13 @@ cma_ledger_memory::cma_ledger_memory(interprocess::open_only_t mode, const char 
     max_accounts(n_accounts),
     max_assets(n_assets),
     max_balances(n_balances),
+    mem_offset(offset),
     m_file(memory_file_name, interprocess::read_write),
-    m_region(m_file, interprocess::read_write, offset, mem_length),
-    m_memory(mode, m_region.get_address(), m_region.get_size()),
+    m_region(m_file, interprocess::read_write, mem_offset, mem_length),
+    balances{reinterpret_cast<cma_ledger_account_balance_t*>(m_region.get_address())},
+    m_memory(mode, reinterpret_cast<char *>(m_region.get_address()) + max_balances * sizeof(cma_ledger_account_balance_t), m_region.get_size() - max_balances * sizeof(cma_ledger_account_balance_t)),
     m_allocator(*m_memory.find_or_construct<interprocess::void_allocator>(interprocess::unique_instance)(
         m_memory.get_segment_manager())),
-    balances{
-        *m_memory.find_or_construct<balance_list_t>(interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     virtual_balances{*m_memory.find_or_construct<virtual_balance_list_t>(
         interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     lassid_to_asset{*m_memory.find_or_construct<lassid_to_asset_t>(
@@ -637,7 +637,6 @@ cma_ledger_memory::cma_ledger_memory(interprocess::open_only_t mode, const char 
     if (required_size > m_region.get_size()) {
         throw CmaException("Mem length too small", -ENOBUFS);
     }
-    balances.reserve(n_balances);
     virtual_balances.reserve(INIT_BALANCE);
     last_balances.reserve(INIT_BALANCE);
     last_virtual_balances.reserve(INIT_BALANCE);
@@ -648,13 +647,13 @@ cma_ledger_memory::cma_ledger_memory(interprocess::create_only_t mode, const cha
     max_accounts(n_accounts),
     max_assets(n_assets),
     max_balances(n_balances),
+    mem_offset(offset),
     m_file(memory_file_name, interprocess::read_write),
-    m_region(m_file, interprocess::read_write, offset, mem_length),
-    m_memory(mode, m_region.get_address(), m_region.get_size()),
+    m_region(m_file, interprocess::read_write, mem_offset, mem_length),
+    balances{reinterpret_cast<cma_ledger_account_balance_t*>(m_region.get_address())},
+    m_memory(mode, reinterpret_cast<char *>(m_region.get_address()) + max_balances * sizeof(cma_ledger_account_balance_t), m_region.get_size() - max_balances * sizeof(cma_ledger_account_balance_t)),
     m_allocator(*m_memory.find_or_construct<interprocess::void_allocator>(interprocess::unique_instance)(
         m_memory.get_segment_manager())),
-    balances{
-        *m_memory.find_or_construct<balance_list_t>(interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     virtual_balances{*m_memory.find_or_construct<virtual_balance_list_t>(
         interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     lassid_to_asset{*m_memory.find_or_construct<lassid_to_asset_t>(
@@ -678,7 +677,6 @@ cma_ledger_memory::cma_ledger_memory(interprocess::create_only_t mode, const cha
     if (required_size > m_region.get_size()) {
         throw CmaException("Mem length too small", -ENOBUFS);
     }
-    balances.reserve(n_balances);
     virtual_balances.reserve(INIT_BALANCE);
     last_balances.reserve(INIT_BALANCE);
     last_virtual_balances.reserve(INIT_BALANCE);
@@ -689,13 +687,13 @@ cma_ledger_memory::cma_ledger_memory(void *mem_ptr, size_t mem_length, size_t n_
     max_accounts(n_accounts),
     max_assets(n_assets),
     max_balances(n_balances),
+    mem_offset(0),
     m_file(),
     m_region(),
-    m_memory(interprocess::create_only, mem_ptr, mem_length),
+    balances{reinterpret_cast<cma_ledger_account_balance_t*>(mem_ptr)},
+    m_memory(interprocess::create_only, reinterpret_cast<char *>(mem_ptr) + max_balances * sizeof(cma_ledger_account_balance_t), mem_length - max_balances * sizeof(cma_ledger_account_balance_t)),
     m_allocator(*m_memory.find_or_construct<interprocess::void_allocator>(interprocess::unique_instance)(
         m_memory.get_segment_manager())),
-    balances{
-        *m_memory.find_or_construct<balance_list_t>(interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     virtual_balances{*m_memory.find_or_construct<virtual_balance_list_t>(
         interprocess::unique_instance)(0, m_memory.get_segment_manager())},
     lassid_to_asset{*m_memory.find_or_construct<lassid_to_asset_t>(
@@ -719,15 +717,19 @@ cma_ledger_memory::cma_ledger_memory(void *mem_ptr, size_t mem_length, size_t n_
     if (required_size > mem_length) {
         throw CmaException("Mem length too small", -ENOBUFS);
     }
-    balances.reserve(n_balances);
     virtual_balances.reserve(INIT_BALANCE);
     last_balances.reserve(INIT_BALANCE);
     last_virtual_balances.reserve(INIT_BALANCE);
 }
 
 void cma_ledger_memory::clear() {
-    balances.clear();
+    for (size_t i = 0; i < last_balances.size(); ++i) {
+        std::ignore = std::fill_n(reinterpret_cast<uint8_t *>(&balances[i]),
+            sizeof(cma_ledger_account_balance_t), (uint8_t) 0);
+    }
     virtual_balances.clear();
+    last_balances.clear();
+    last_virtual_balances.clear();
     account_to_laccid.clear();
     laccid_to_account.clear();
     asset_to_lassid.clear();
@@ -1293,10 +1295,8 @@ void cma_ledger_memory::get_account_asset_balance(cma_ledger_asset_id_t asset_id
             return;
         }
         account_balance_info->balance = find_result->second.withdrawable_balance.get();
-        account_balance_info->index = find_result->second.withdrawable_balance.get() - balances.data();
-        account_balance_info->offset =
-            reinterpret_cast<char *>(balances.data()) - reinterpret_cast<char *>(m_memory.get_address()) +
-            account_balance_info->index * sizeof(cma_ledger_account_balance_t);
+        account_balance_info->index = find_result->second.withdrawable_balance.get() - balances;
+        account_balance_info->offset = account_balance_info->index * sizeof(cma_ledger_account_balance_t) + mem_offset;
     }
 }
 
@@ -1341,16 +1341,17 @@ void cma_ledger_memory::set_account_asset_balance(cma_ledger_asset_id_t asset_id
                 break;
             }
             case CMA_LEDGER_BALANCE_TYPE_WITHDRAWABLE: {
-                cma_ledger_account_balance_t new_withdrawable_balance = {};
+                auto new_index = last_balances.size();
+                cma_ledger_account_balance_t *new_withdrawable_balance = &balances[new_index];
                 // uint32_t type;
-                new_withdrawable_balance.type = static_cast<uint32_t>(asset_find_result->second.type);
+                new_withdrawable_balance->type = static_cast<uint32_t>(asset_find_result->second.type);
                 // cma_abi_address_t owner;
                 std::ignore = std::copy_n(std::begin(account_find_result->second.account.address.data),
-                    CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance.owner.data));
+                    CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance->owner.data));
 
                 // cma_amount_t amount;
                 std::ignore = std::copy_n(std::begin(balance.data), CMA_ABI_U256_LENGTH,
-                    std::begin(new_withdrawable_balance.amount.data));
+                    std::begin(new_withdrawable_balance->amount.data));
 
                 switch (asset_find_result->second.type) {
                     case CMA_LEDGER_ASSET_TYPE_ID:
@@ -1360,16 +1361,16 @@ void cma_ledger_memory::set_account_asset_balance(cma_ledger_asset_id_t asset_id
                     case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS: {
                         // cma_token_address_t token;
                         std::ignore = std::copy_n(std::begin(asset_find_result->second.token_address.data),
-                            CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance.token_address.data));
+                            CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance->token_address.data));
                         break;
                     }
                     case CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID: {
                         // cma_token_address_t token;
                         std::ignore = std::copy_n(std::begin(asset_find_result->second.token_address.data),
-                            CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance.token_address.data));
+                            CMA_ABI_ADDRESS_LENGTH, std::begin(new_withdrawable_balance->token_address.data));
                         // cma_token_id_t token_id;
                         std::ignore = std::copy_n(std::begin(asset_find_result->second.token_id.data),
-                            CMA_ABI_ID_LENGTH, std::begin(new_withdrawable_balance.token_id.data));
+                            CMA_ABI_ID_LENGTH, std::begin(new_withdrawable_balance->token_id.data));
                         break;
                     }
                     default: {
@@ -1378,8 +1379,7 @@ void cma_ledger_memory::set_account_asset_balance(cma_ledger_asset_id_t asset_id
                     }
                 }
 
-                balances.push_back(new_withdrawable_balance);
-                new_balance.withdrawable_balance = &balances.back();
+                new_balance.withdrawable_balance = new_withdrawable_balance;
                 last_balances.push_back({asset_id, account_id});
                 break;
             }
@@ -1467,7 +1467,6 @@ void cma_ledger_memory::set_account_asset_balance(cma_ledger_asset_id_t asset_id
                         std::fill_n(reinterpret_cast<uint8_t *>(find_result_last->second.withdrawable_balance.get()),
                             sizeof(cma_ledger_account_balance_t), (uint8_t) 0);
                     find_result_last->second.withdrawable_balance = find_result->second.withdrawable_balance;
-                    last_balances.pop_back();
                 }
                 auto account_find_result = laccid_to_account.find(account_id);
                 if (account_find_result == laccid_to_account.end()) {
@@ -1475,7 +1474,7 @@ void cma_ledger_memory::set_account_asset_balance(cma_ledger_asset_id_t asset_id
                 }
                 account_find_result->second.n_balances--;
 
-                balances.pop_back();
+                last_balances.pop_back();
                 if (account_asset_balance.erase(find_result->first) == 0) {
                     throw CmaException("Coundn't erase last balance", CMA_LEDGER_ERROR_REMOVE);
                 }
@@ -1611,10 +1610,14 @@ void cma_ledger_memory::transfer(cma_ledger_asset_id_t asset_id, cma_ledger_acco
     }
 }
 
-auto cma_ledger_memory::get_balances() -> balance_list_t * {
-    return &balances;
+auto cma_ledger_memory::get_balances() -> cma_ledger_account_balance_t * {
+    return balances;
 }
 
-auto cma_ledger_memory::get_memory_address() -> void * {
-    return m_memory.get_address();
+auto cma_ledger_memory::get_balances_size() -> size_t {
+    return last_balances.size();
+}
+
+auto cma_ledger_memory::get_mem_offset() -> size_t {
+    return mem_offset;
 }

@@ -7,10 +7,13 @@
 #include <iostream>
 #include <cmath> // For std::log2
 #include <iomanip>
+#include <filesystem>
+#include <fstream>
 // #include <memory>
 // #include <ranges>
 // #include <span>
 // #include <vector>
+#include <cartesi-machine/machine-c-api.h>
 
 #include "complete-merkle-tree.h"
 #include "hash-tree-proof.h"
@@ -32,15 +35,25 @@ using cartesi::machine_hash;
 // using StateFile;
 
 static constexpr int ACCOUNT_SIZE = sizeof(cma_ledger_account_balance_t);
-static constexpr int WORD_SIZE = 5;
+static constexpr int LOG2_WORD_SIZE = 5;
+static constexpr int WORD_SIZE = 32;
 
+
+using  partial_ledger_account_balance_t = struct {
+    uint8_t data[WORD_SIZE];
+};
 
 using AccountBytes = std::span<const uint8_t, sizeof(cma_ledger_account_balance_t)>;
+using AccountBytesPartial = std::span<const uint8_t, sizeof(partial_ledger_account_balance_t)>;
 
 
 namespace {
 
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "code assumes little-endian byte ordering");
+
+// typedef struct partial_ledger_account_balance {
+//     uint8_t data[WORD_SIZE];
+// } partial_ledger_account_balance_t;
 
 template <cartesi::ContiguousRangeOfByteLike R>
     requires std::ranges::sized_range<R>
@@ -105,24 +118,7 @@ auto address_from_string(std::string_view str, cma_abi_address_t &addr) -> void 
     }
 }
 
-// cma_amount_t value_from_string(std::string_view str) {
-//     cma_amount_t amount{};
-//     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-//     auto [end, ec] = std::from_chars(str.data(), str.data() + str.size(), amount);
-//     if (ec == std::errc::invalid_argument) {
-//         throw std::invalid_argument{std::format("value '{}' is not a number", str)};
-//     }
-//     if (ec == std::errc::result_out_of_range) {
-//         throw std::out_of_range{std::format("value '{}' is out of range", str)};
-//     }
-//     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-//     if (end != str.data() + str.size()) {
-//         throw std::runtime_error{std::format("trailing characters after value in '{}'", str)};
-//     }
-//     return amount;
-// }
-
-auto id_from_string(std::string_view str, cma_token_id_t token_id) -> void {
+auto b32_from_string(std::string_view str, cma_token_id_t token_id) -> void {
     if (!str.starts_with("0x") && !str.starts_with("0X")) {
         throw std::invalid_argument{std::format("missing 0x prefix in value '{}'", str)};
     }
@@ -154,36 +150,39 @@ auto id_from_string(std::string_view str, cma_token_id_t token_id) -> void {
 
 size_t value_from_string(std::string_view str) {
     size_t amount;
+    uint8_t base = 10;
+    auto body = str;
+    if (str.starts_with("0x") || str.starts_with("0X")) {
+        base = 16;
+        body = str.substr(2);
+    }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    auto [end, ec] = std::from_chars(str.data(), str.data() + str.size(), amount);
+    auto [end, ec] = std::from_chars(body.data(), body.data() + body.size(), amount, base);
     if (ec == std::errc::invalid_argument) {
-        throw std::invalid_argument{std::format("value '{}' is not a number", str)};
+        throw std::invalid_argument{std::format("value '{}' is not a number", body)};
     }
     if (ec == std::errc::result_out_of_range) {
-        throw std::out_of_range{std::format("value '{}' is out of range", str)};
+        throw std::out_of_range{std::format("value '{}' is out of range", body)};
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (end != str.data() + str.size()) {
-        throw std::runtime_error{std::format("trailing characters after value in '{}'", str)};
+    if (end != body.data() + body.size()) {
+        throw std::runtime_error{std::format("trailing characters after value in '{}'", body)};
     }
     return amount;
 }
 
-
-
-void dump(cma_ledger_memory &ledger, size_t ledger_offset) {
+void dump(cma_ledger_memory &ledger) {
     std::cout << "[";
     bool first = true;
-    uint64_t offset = 0; // dunno why std::views::enumerate is not found...
+    uint64_t offset = 0;
     auto balances = ledger.get_balances();
     if (balances == nullptr) {
         throw std::runtime_error{"Invalid balances"};
     }
-    char *mem_addr = reinterpret_cast<char *>(ledger.get_memory_address());
-    char *bal_addr = reinterpret_cast<char *>(balances->data());
+    auto mem_offset = ledger.get_mem_offset();
 
-    for (size_t i = 0; i < balances->size(); ++i) {
-        const auto balance = (*balances)[i];
+    for (size_t i = 0; i < ledger.get_balances_size(); ++i) {
+        const auto balance = balances[i];
         if (first) {
             first = false;
         } else {
@@ -200,14 +199,14 @@ void dump(cma_ledger_memory &ledger, size_t ledger_offset) {
         }
         std::cout << R"(    "amount": )" << b32_to_string(balance.amount) << '"' << ",\n";
         std::cout << "    \"index\": " << i << ",\n";
-        std::cout << "    \"drive_offset\": " << int_to_hex(ledger_offset + bal_addr - mem_addr + offset) << "\n";
+        std::cout << "    \"drive_offset\": " << int_to_hex(mem_offset + offset) << "\n";
         std::cout << "  }";
         offset += ACCOUNT_SIZE;
     }
     std::cout << "\n]\n";
 }
 
-void dump(const cma_ledger_account_balance_info_t &account_balance_info, size_t ledger_offset) {
+void dump(const cma_ledger_account_balance_info_t &account_balance_info) {
     std::cout << "{\n";
     std::cout << "  \"type\": " << account_balance_info.balance->type << ",\n";
     std::cout << R"(  "owner": )" << address_to_string(account_balance_info.balance->owner) << '"' << ",\n";
@@ -219,7 +218,7 @@ void dump(const cma_ledger_account_balance_info_t &account_balance_info, size_t 
     }
     std::cout << R"(  "amount": )" << b32_to_string(account_balance_info.balance->amount) << '"' << ",\n";
     std::cout << "  \"index\": " << account_balance_info.index << ",\n";
-    std::cout << "  \"drive_offset\": " << int_to_hex(account_balance_info.offset + ledger_offset) << "\n";
+    std::cout << "  \"drive_offset\": " << int_to_hex(account_balance_info.offset) << "\n";
     std::cout << "}\n";
 }
 
@@ -244,13 +243,19 @@ auto account_bytes(const cma_ledger_account_balance_t &account) {
     return AccountBytes{reinterpret_cast<const uint8_t *>(std::addressof(account)), sizeof(account)};
 }
 
+auto account_bytes(const partial_ledger_account_balance_t &account) {
+    // NOLINTNEXTLINE (cppcoreguidelines-pro-type-reinterpret-cast)
+    return AccountBytesPartial{reinterpret_cast<const uint8_t *>(std::addressof(account)), sizeof(account)};
+}
+
 template <std::ranges::sized_range D>
-    requires std::same_as<std::ranges::range_value_t<D>, cma_ledger_account_balance_t>
+    requires std::same_as<std::ranges::range_value_t<D>, partial_ledger_account_balance_t>
 auto leaf_hashes(const D &data) {
     return data | std::views::transform([](const auto &account) -> machine_hash {
         return get_hash(keccak_256_hasher{}, account_bytes(account));
     }) | std::ranges::to<std::vector<machine_hash>>();
 }
+
 
 void dump(const hash_tree_proof &proof, const cma_ledger_account_balance_t &balance, size_t drive_offset) {
     std::cout << "{\n";
@@ -301,35 +306,8 @@ options are
     dumps all accounts into a JSON array and sends it to stdout
   --dump-proof
     dumps a Merkle proof for the value of the account into a JSON object and sends it to stdout
-    e.g., to dump a proof for the account of 0x0000000000000000000000000000000000000001
-      ./ew state --dump-proof 0x1
-          {
-            "log2_root_size": 22,
-            "root_hash": "0xcaf41ae20ebfa2973b1ead4bb6318d7b11591852ac925d668dfdf85a7efadb88",
-            "target_address": 0,
-            "log2_target_size": 5,
-            "target_hash": "0xb3eb0e4ef0f57d13c2d25def39b2231978f9505b2b8c6f9dc1365d82e2371835",
-            "target_data": "0x0a00000000000000000000000000000000000000000000000000000100000000",
-            "sibling_hashes": [
-              "0xbf7df83ae7ba62315a09bf233febe5518c4a107f7433ac02f9f87d695abc3e5f",
-              "0x633dc4d7da7256660a892f8f1604a44b5432649cc8ec5cb3ced4c4e6ac94dd1d",
-              "0x890740a8eb06ce9be422cb8da5cdafc2b58c0a5e24036c578de2a433c828ff7d",
-              "0x3b8ec09e026fdc305365dfc94e189a81b38c7597b3d941c279f042e8206e0bd8",
-              "0xecd50eee38e386bd62be9bedb990706951b65fe053bd9d8a521af753d139e2da",
-              "0xdefff6d330bb5403f63b14f33b578274160de3a50df4efecf0e0db73bcdd3da5",
-              "0x617bdd11f7c0a11f49db22f629387a12da7596f9d1704d7465177c63d88ec7d7",
-              "0x292c23a9aa1d8bea7e2435e555a4a60e379a5a35f3f452bae60121073fb6eead",
-              "0xe1cea92ed99acdcb045a6726b2f87107e8a61620a232cf4d7d5b5766b3952e10",
-              "0x7ad66c0a68c72cb89e4fb4303841966e4062a76ab97451e3b9fb526a5ceb7f82",
-              "0xe026cc5a4aed3c22a58cbd3d2ac754c9352c5436f638042dca99034e83636516",
-              "0x3d04cffd8b46a874edf5cfae63077de85f849a660426697b06a829c70dd1409c",
-              "0xad676aa337a485e4728a0b240d92b3ef7b3c372d06d189322bfd5f61f1e7203e",
-              "0xa2fca4a49658f9fab7aa63289c91b7c7b6c832a6d0e69334ff5b0a3483d09dab",
-              "0x4ebfd9cd7bca2505f7bef59cc1c12ecc708fff26ae4af19abe852afe9e20c862",
-              "0x2def10d13dd169f550f578bda343d9717a138562e0093b380a1120789d53cf10",
-              "0x776a31db34a1a0a7caaf862cffdfff1789297ffadc380bd3d39281d340abd3ad"
-            ]
-          }
+  --dump-full-proof <snapshot path>
+    dumps a Merkle proof up to the machine root for the value of the account into a JSON object and sends it to stdout
   --help
     prints this help message
 )";
@@ -349,7 +327,7 @@ typedef enum : uint8_t {
 } // anonymous namespace
 
 auto main(int argc, const char *argv[]) -> int try {
-    // static_assert(ACCOUNT_SIZE == WORD_SIZE,
+    // static_assert(ACCOUNT_SIZE == LOG2_WORD_SIZE,
     //     "unexpected account size (expected 32 bytes, same as machine word size)");
     std::string memory_file_name;
     size_t mem_length = 64UL * 1024 * 1024;
@@ -361,9 +339,12 @@ auto main(int argc, const char *argv[]) -> int try {
     cma_abi_address_t owner_address;
     cma_token_address_t token_address;
     cma_token_id_t token_id;
+    std::string machine_snapshot_path;
+    size_t flash_drive_offset = 0;
 
     drive_operation_t operation = NOP;
     bool dump_proof = false;
+    bool dump_full_proof = false;
 
     for (int i = 1; i < argc; ++i) {
         // NOLINTBEGIN (cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -404,12 +385,20 @@ auto main(int argc, const char *argv[]) -> int try {
             balance_index = value_from_string(argv[i + 1]);
             operation = FIND_INDEX;
             ++i;
-        } else if (strcmp(argv[i], "--dump-proof") == 0) {
-            dump_proof = true;
-        } else if (strcmp(argv[i], "--dump") == 0) {
-            operation = DUMP;
         } else if (strcmp(argv[i], "--total") == 0) {
             operation = TOTAL;
+        } else if (strcmp(argv[i], "--dump") == 0) {
+            operation = DUMP;
+        } else if (strcmp(argv[i], "--dump-proof") == 0) {
+            dump_proof = true;
+        } else if (strcmp(argv[i], "--dump-full-proof") == 0) {
+            if (i + 2 >= argc) {
+                throw std::runtime_error{"missing machine snapshot path"};
+            }
+            machine_snapshot_path = argv[i+1];
+            flash_drive_offset = value_from_string(argv[i + 2]);
+            dump_full_proof = true;
+            i += 2;
         } else if (strcmp(argv[i], "--help") == 0) {
             help();
             return 0;
@@ -437,7 +426,7 @@ auto main(int argc, const char *argv[]) -> int try {
                         operation = FIND_TOKEN_ADDRESS_ID;
                         address_from_string(argv[i + 1], owner_address);
                         address_from_string(argv[i + 2], token_address);
-                        id_from_string(argv[i + 3], token_id);
+                        b32_from_string(argv[i + 3], token_id);
                         break;
                     default:
                         throw std::runtime_error{"Cannot detect operation"};
@@ -456,15 +445,11 @@ auto main(int argc, const char *argv[]) -> int try {
         n_assets, n_balances);
 
     if (operation == DUMP) {
-        dump(ledger, ledger_offset);
+        dump(ledger);
         return 0;
     }
     if (operation == TOTAL) {
-        auto balances = ledger.get_balances();
-        if (balances == nullptr) {
-            throw std::runtime_error{"Invalid balances"};
-        }
-        std::cout << balances->size() << '\n';
+        std::cout << ledger.get_balances_size() << '\n';
         return 0;
     }
     if (operation == FIND_INDEX) {
@@ -472,23 +457,53 @@ auto main(int argc, const char *argv[]) -> int try {
         if (balances == nullptr) {
             throw std::runtime_error{"Invalid balances"};
         }
-        auto balance = (*balances)[balance_index];
+        auto balance = balances[balance_index];
         if (balance.type == 0) {
             throw std::runtime_error{"Invalid balance type"};
         }
-        char *mem_addr = reinterpret_cast<char *>(ledger.get_memory_address());
-        char *bal_addr = reinterpret_cast<char *>(balances->data());
-        size_t drive_offset = ledger_offset + bal_addr - mem_addr;
+        auto mem_offset = ledger.get_mem_offset();
+        size_t drive_offset = mem_offset + balance_index * ACCOUNT_SIZE;
         if (dump_proof) {
             size_t log2_max_accounts = (n_balances < 1) ? 0 : std::bit_width(n_balances - 1);
-            size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(sizeof(cma_ledger_account_balance_t))));
+            size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(ACCOUNT_SIZE)));
+
+            partial_ledger_account_balance_t *partial_balances = reinterpret_cast<partial_ledger_account_balance_t *>(balances);
 
             const auto log2_root_size = log2_max_accounts + log2_account_size;
             const auto log2_leaf_size = log2_account_size;
-            const auto log2_word_size = WORD_SIZE;
-            std::unique_ptr<complete_merkle_tree> mt = std::make_unique<complete_merkle_tree>(log2_root_size, log2_leaf_size, log2_word_size,
-                    leaf_hashes(balances[0]));
+            const auto log2_word_size = LOG2_WORD_SIZE;
+            std::unique_ptr<complete_merkle_tree> mt = std::make_unique<complete_merkle_tree>(
+                log2_root_size, log2_word_size, log2_word_size,
+                leaf_hashes(std::span<partial_ledger_account_balance_t>{partial_balances,n_balances*ACCOUNT_SIZE/WORD_SIZE}));
             dump(mt->get_proof(balance_index * ACCOUNT_SIZE, log2_leaf_size), balance, drive_offset);
+        } else if (dump_full_proof) {
+            std::string config_path = machine_snapshot_path + "/config.json";
+            if (!std::filesystem::exists(machine_snapshot_path) || !std::filesystem::exists(config_path)) {
+                throw std::runtime_error{std::format("coundn'l find snapshot config '{}' ",config_path)};
+            }
+
+            std::ifstream config_file(config_path);
+            if (!config_file.is_open()) {
+                throw std::runtime_error{std::format("unable to open config '{}'",config_path)};
+            }
+            std::string config_json;
+            std::string line;
+            while (std::getline(config_file, line)) {
+                config_json += line;
+            }
+
+            cm_machine *machine = nullptr;
+            // if (cm_load_new(machine_snapshot_path.c_str(), config_json.c_str(), CM_SHARING_NONE, &machine) != CM_ERROR_OK) { // 0.20.0
+            if (cm_load_new(machine_snapshot_path.c_str(), config_json.c_str(), &machine) != CM_ERROR_OK) {
+              throw std::runtime_error{std::format("failed to load machine: {}", cm_get_last_error_message())};
+            }
+            const char *proof;
+            size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(ACCOUNT_SIZE)));
+
+            if (cm_get_proof(machine, flash_drive_offset + drive_offset, log2_account_size, &proof) != CM_ERROR_OK) {
+              throw std::runtime_error{std::format("couldn't get proof: {}", cm_get_last_error_message())};
+            }
+            std::cout << proof << '\n';
         } else {
             dump(balance, balance_index, drive_offset);
         }
@@ -530,21 +545,50 @@ auto main(int argc, const char *argv[]) -> int try {
         if (balances == nullptr) {
             throw std::runtime_error{"Invalid balances"};
         }
-        char *mem_addr = reinterpret_cast<char *>(ledger.get_memory_address());
-        char *bal_addr = reinterpret_cast<char *>(balances->data());
 
         size_t log2_max_accounts = (n_balances < 1) ? 0 : std::bit_width(n_balances - 1);
-        size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(sizeof(cma_ledger_account_balance_t))));
+        size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(ACCOUNT_SIZE)));
 
         auto index = account_balance_info.index;
+        partial_ledger_account_balance_t *partial_balances = reinterpret_cast<partial_ledger_account_balance_t *>(balances);
+
         const auto log2_root_size = log2_max_accounts + log2_account_size;
         const auto log2_leaf_size = log2_account_size;
-        const auto log2_word_size = WORD_SIZE;
-        std::unique_ptr<complete_merkle_tree> mt = std::make_unique<complete_merkle_tree>(log2_root_size, log2_leaf_size, log2_word_size,
-                leaf_hashes(balances[0]));
-        dump(mt->get_proof(index * ACCOUNT_SIZE, log2_leaf_size), *(account_balance_info.balance), ledger_offset + bal_addr - mem_addr);
+        const auto log2_word_size = LOG2_WORD_SIZE;
+        std::unique_ptr<complete_merkle_tree> mt = std::make_unique<complete_merkle_tree>(
+            log2_root_size, log2_word_size, log2_word_size,
+            leaf_hashes(std::span<partial_ledger_account_balance_t>{partial_balances,n_balances*ACCOUNT_SIZE/WORD_SIZE}));
+        dump(mt->get_proof(index * ACCOUNT_SIZE, log2_leaf_size), *(account_balance_info.balance), account_balance_info.offset);
+    } else if (dump_full_proof) {
+        std::string config_path = machine_snapshot_path + "/config.json";
+        if (!std::filesystem::exists(machine_snapshot_path) || !std::filesystem::exists(config_path)) {
+            throw std::runtime_error{std::format("coundn'l find snapshot config '{}' ",config_path)};
+        }
+
+        std::ifstream config_file(config_path);
+        if (!config_file.is_open()) {
+            throw std::runtime_error{std::format("unable to open config '{}'",config_path)};
+        }
+        std::string config_json;
+        std::string line;
+        while (std::getline(config_file, line)) {
+            config_json += line;
+        }
+
+        cm_machine *machine = nullptr;
+        // if (cm_load_new(machine_snapshot_path.c_str(), config_json.c_str(), CM_SHARING_NONE, &machine) != CM_ERROR_OK) { // 0.20.0
+        if (cm_load_new(machine_snapshot_path.c_str(), config_json.c_str(), &machine) != CM_ERROR_OK) {
+          throw std::runtime_error{std::format("failed to load machine: {}", cm_get_last_error_message())};
+        }
+        const char *proof;
+        size_t log2_account_size = static_cast<size_t>(std::log2(static_cast<double>(ACCOUNT_SIZE)));
+
+        if (cm_get_proof(machine, flash_drive_offset + account_balance_info.offset, log2_account_size, &proof) != CM_ERROR_OK) {
+          throw std::runtime_error{std::format("couldn't get proof: {}", cm_get_last_error_message())};
+        }
+        std::cout << proof << '\n';
     } else {
-        dump(account_balance_info, ledger_offset);
+        dump(account_balance_info);
     }
 
     return 0;
