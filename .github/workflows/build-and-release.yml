@@ -102,7 +102,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          files: artifacts/*
+          files: ${{ runner.temp }}/artifacts/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
