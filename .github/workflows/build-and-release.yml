@@ -111,6 +111,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build-and-test
     runs-on: ubuntu-latest
+    environment: Main
     permissions:
       contents: write
 
