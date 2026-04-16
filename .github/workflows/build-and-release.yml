@@ -59,7 +59,7 @@ jobs:
         run: |
           mkdir -p artifacts
           ls -la artifacts
-          make third-party
+          make third-party-boost
           make docker DOCKERFILE=${{ matrix.images.image }}.dockerfile ARGS="tar-files" VERSION=${{ env.VERSION }}
           ls -la build/_tar
           cp build/_tar/machine-asset-tools.tar.gz     artifacts/${{ env.TOOLS_TARGZ }}_${{ matrix.images.plat }}_riscv64_v${{ env.VERSION }}.tar.gz
@@ -99,6 +99,41 @@ jobs:
           merge-multiple: true
 
       - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: ${{ runner.temp }}/artifacts/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  tools:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Cartesi machine
+        run: |
+          wget https://github.com/cartesi/machine-emulator/releases/download/v${{ vars.MACHINE_EMULATOR_VERSION }}/machine-emulator_amd64.deb
+          sudo apt-get update
+          sudo apt-get install -y ./machine-emulator_amd64.deb
+
+      - uses: actions/checkout@v4
+
+      - name: setup
+        run: |
+          make third-party MACHINE_EMULATOR_VERSION=${{ vars.MACHINE_EMULATOR_VERSION }}
+
+      - name: make tools
+        run: |
+          make account-driver-reader
+          mkdir -p ${{ runner.temp }}/artifacts
+          cd build/tools/ && tar zcvf account-driver-reader ${{ runner.temp }}/artifacts/tools.tar.gz
+
+      - name: Upload release tools
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
