@@ -122,6 +122,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ./machine-emulator_amd64.deb
 
+      - name: Set up GCC
+        uses: egor-tensin/setup-gcc@v2
+        with:
+          version: 14
+          platform: x64
+
       - uses: actions/checkout@v4
 
       - name: setup
