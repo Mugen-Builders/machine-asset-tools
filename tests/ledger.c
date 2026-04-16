@@ -176,6 +176,37 @@ void test_asset_with_token_address_and_id(void) {
 
     assert(asset_id == 0);
 
+    cma_ledger_account_id_t account_id;
+    cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ID;
+    assert(cma_ledger_retrieve_account(&ledger, &account_id, NULL, NULL, NULL, &account_type,
+               CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS);
+
+    // clang-format off
+    cma_amount_t amount2 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+        0x00, 0x04,
+    }};
+    // clang-format on;
+
+    assert(cma_ledger_deposit(&ledger, asset_id, account_id, &amount2) ==
+        CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
+
+    // clang-format off
+    cma_amount_t amount = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x01,
+    }};
+    // clang-format on;
+
+    assert(cma_ledger_deposit(&ledger, asset_id, account_id, &amount) ==
+        CMA_LEDGER_SUCCESS);
+    assert(cma_ledger_deposit(&ledger, asset_id, account_id, &amount) ==
+        CMA_LEDGER_ERROR_SUPPLY_OVERFLOW);
+
     assert(cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address1, &token_id1, NULL, &asset_type,
                CMA_LEDGER_OP_CREATE) == CMA_LEDGER_ERROR_INSERTION_ERROR);
 
@@ -207,6 +238,96 @@ void test_asset_with_token_address_and_id(void) {
                &asset_type_found, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
 
     assert(asset_type_found == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID);
+    assert(memcmp(token_address_find.data, token_address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
+    assert(memcmp(token_id_find.data, token_id1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
+
+    assert(cma_ledger_fini(&ledger) == CMA_LEDGER_SUCCESS);
+    printf("%s passed\n", __FUNCTION__);
+}
+
+void test_asset_with_token_address_and_id_amount(void) {
+    cma_ledger_t ledger;
+    assert(cma_ledger_init(&ledger) == CMA_LEDGER_SUCCESS);
+
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
+    assert(cma_ledger_retrieve_asset(&ledger, NULL, NULL, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) == -EINVAL);
+
+    // clang-format off
+    cma_token_address_t token_address1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    }};
+    // clang-format on
+
+    assert(cma_ledger_retrieve_asset(&ledger, NULL, &token_address1, NULL, NULL, &asset_type, CMA_LEDGER_OP_FIND) ==
+        -EINVAL);
+
+    // clang-format off
+    cma_token_id_t token_id1 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x01,
+    }};
+    // clang-format on
+
+    assert(cma_ledger_retrieve_asset(&ledger, NULL, &token_address1, &token_id1, NULL, &asset_type,
+               CMA_LEDGER_OP_FIND) == CMA_LEDGER_ERROR_ASSET_NOT_FOUND);
+
+    cma_ledger_asset_id_t asset_id;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address1, &token_id1, NULL, &asset_type,
+               CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS);
+
+    assert(asset_id == 0);
+
+    cma_ledger_account_id_t account_id;
+    cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ID;
+    assert(cma_ledger_retrieve_account(&ledger, &account_id, NULL, NULL, NULL, &account_type,
+               CMA_LEDGER_OP_CREATE) == CMA_LEDGER_SUCCESS);
+
+    // clang-format off
+    cma_amount_t amount = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+        0x00, 0x04,
+    }};
+    // clang-format on;
+
+    assert(cma_ledger_deposit(&ledger, asset_id, account_id, &amount) ==
+        CMA_LEDGER_SUCCESS);
+
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address1, &token_id1, NULL, &asset_type,
+               CMA_LEDGER_OP_CREATE) == CMA_LEDGER_ERROR_INSERTION_ERROR);
+
+    // clang-format off
+    cma_token_id_t token_id2 = {.data = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x02,
+    }};
+    // clang-format on
+
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id, &token_address1, &token_id2, NULL, &asset_type,
+               CMA_LEDGER_OP_FIND_OR_CREATE) == CMA_LEDGER_SUCCESS);
+
+    assert(asset_id == 1);
+
+    cma_ledger_asset_id_t asset_id_find;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id_find, &token_address1, &token_id1, NULL, &asset_type,
+               CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+
+    assert(asset_id_find == 0);
+
+    cma_ledger_asset_id_t asset_id_to_find = 0;
+    cma_token_address_t token_address_find;
+    cma_token_id_t token_id_find;
+    cma_ledger_asset_type_t asset_type_found = CMA_LEDGER_ASSET_TYPE_ID;
+    assert(cma_ledger_retrieve_asset(&ledger, &asset_id_to_find, &token_address_find, &token_id_find, NULL,
+               &asset_type_found, CMA_LEDGER_OP_FIND) == CMA_LEDGER_SUCCESS);
+
+    assert(asset_type_found == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT);
     assert(memcmp(token_address_find.data, token_address1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
     assert(memcmp(token_id_find.data, token_id1.data, CMA_ABI_ADDRESS_LENGTH) == 0);
 
@@ -832,6 +953,7 @@ int main(void) {
     test_asset_id();
     test_asset_with_token_address();
     test_asset_with_token_address_and_id();
+    test_asset_with_token_address_and_id_amount();
     test_account_id();
     test_account_address();
     test_account_full_id();

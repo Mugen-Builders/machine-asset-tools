@@ -6,6 +6,7 @@ ARG MACHINE_GUEST_TOOLS_VERSION=0.17.1-r1
 ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.5
 ARG MACHINE_ASSET_TOOLS_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 ARG MACHINE_ASSET_TOOLS_DEV_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
+ARG WALLET_APP_CONFIG=config.h
 
 ### Base
 FROM --platform=linux/riscv64 ${IMAGE_NAME}:${IMAGE_TAG} AS base
@@ -39,6 +40,9 @@ WORKDIR /opt/build/app
 
 COPY app.cpp .
 COPY Makefile .
+
+ARG WALLET_APP_CONFIG
+COPY ${WALLET_APP_CONFIG} config.h
 
 RUN make
 

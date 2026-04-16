@@ -17,15 +17,11 @@ extern "C" {
 
 #include <libcma/parser.h>
 #include <libcma/ledger.h>
+
+#include "config.h"
 }
 
 #define MERKLE_PATH "/tmp/merkle"
-
-#define CONFIG_ETHER_PORTAL_ADDRESS {0xa6, 0x32, 0xc5, 0xc0, 0x58, 0x12, 0xc6, 0xa6, 0x14, 0x9b, 0x7a, 0xf5, 0xc5, 0x61, 0x17, 0xd1, 0xd2, 0x60, 0x38, 0x28}
-#define CONFIG_ERC20_PORTAL_ADDRESS {0xac, 0xa6, 0x58, 0x6a, 0xc, 0xf0, 0x5b, 0xd8, 0x31, 0xf2, 0x50, 0x1e, 0x7b, 0x4a, 0xea, 0x55, 0xd, 0xa6, 0x56, 0x2d}
-#define CONFIG_ERC721_PORTAL_ADDRESS {0x9e, 0x88, 0x51, 0xda, 0xdb, 0x2b, 0x77, 0x10, 0x39, 0x28, 0x51, 0x88, 0x46, 0xc4, 0x67, 0x8d, 0x48, 0xb5, 0xe3, 0x71}
-#define CONFIG_ERC1155_SINGLE_PORTAL_ADDRESS {0x18, 0x55, 0x83, 0x98, 0xdd, 0x1a, 0x8c, 0xe2, 0x9, 0x56, 0x28, 0x7a, 0x4d, 0xa7, 0xb7, 0x6a, 0xe7, 0xa9, 0x66, 0x62}
-#define CONFIG_ERC1155_BATCH_PORTAL_ADDRESS {0xe2, 0x46, 0xab, 0xb9, 0x74, 0xb3, 0x7, 0x49, 0xd, 0x9c, 0x69, 0x32, 0xf4, 0x8e, 0xbe, 0x79, 0xde, 0x72, 0x33, 0x8a}
 
 #define LEDGER_OFFSET 0UL
 #define ASSETS_PER_ACCOUNT 8        //< Average of positions for an account.
@@ -193,8 +189,8 @@ auto process_get_balance(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_account
 
     // get account
     cma_ledger_account_id_t lacc_id;
-    cma_ledger_account_type_t asset_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
-    err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, account, nullptr, &asset_type, CMA_LEDGER_OP_FIND);
+    cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ACCOUNT_ID;
+    err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, account, nullptr, &account_type, CMA_LEDGER_OP_FIND);
     if (err != CMA_LEDGER_SUCCESS) {
         throw AppException(std::string("unable to retrieve account: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
@@ -242,6 +238,7 @@ auto process_get_total_supply(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_to
 
 auto process_inspect(cmt_rollup_t *rollup, cma_ledger_t *ledger, cmt_rollup_inspect_t *input) -> void {
     // Decode operation
+    std::ignore = std::fprintf(stdout,"[app] Inspect payload data %s\n", reinterpret_cast<char *>(input->payload.data));
     cma_parser_input_t parser_input;
     int err = cma_parser_decode_inspect(CMA_PARSER_INPUT_TYPE_AUTO, input, &parser_input);
     if (err != CMA_PARSER_SUCCESS) {
@@ -285,7 +282,7 @@ auto inspect_state(cmt_rollup_t *rollup, cma_ledger_t *ledger) -> bool try {
         std::ignore = std::fprintf(stderr, "[app] unable to read inspect state: %s\n", std::strerror(-err));
         return false;
     }
-    std::ignore = std::fprintf(stdout, "[app] inspect request with size %zu\n ", input.payload.length);
+    std::ignore = std::fprintf(stdout, "[app] inspect request with size %zu\n", input.payload.length);
 
     process_inspect(rollup, ledger, &input);
 
@@ -467,7 +464,7 @@ auto process_erc1155_single_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *
 
     // get asset
     cma_ledger_asset_id_t lass_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input.erc1155_single_deposit.token,
             &parser_input.erc1155_single_deposit.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
@@ -535,7 +532,7 @@ auto process_erc1155_batch_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *i
 
     // get assets
     cma_ledger_asset_id_t lass_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
     for (size_t t = 0; t < parser_input.erc1155_batch_deposit.token_ids.length; t++) {
         cma_token_id_t token_id;
         std::ignore = std::copy_n(std::begin(parser_input.erc1155_batch_deposit.token_ids.data[t]), CMA_ABI_U256_LENGTH,
@@ -715,7 +712,7 @@ auto process_erc1155_single_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cm
 
     // get asset
     cma_ledger_asset_id_t lass_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
     int err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_single_withdrawal.token,
         &parser_input->erc1155_single_withdrawal.token_id, nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
@@ -765,7 +762,7 @@ auto process_erc1155_batch_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma
     // get assets
     cma_ledger_asset_id_t lass_id;
     int err;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
 
     for (size_t t = 0; t < parser_input->erc1155_batch_withdrawal.token_ids.length; t++) {
         cma_token_id_t token_id;
@@ -935,7 +932,7 @@ auto process_erc1155_single_transfer(cma_ledger_t *ledger, cma_ledger_account_id
 
     // get asset
     cma_ledger_asset_id_t lass_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
     err = cma_ledger_retrieve_asset(ledger, &lass_id, &parser_input->erc1155_single_transfer.token, &parser_input->erc1155_single_transfer.token_id,
                nullptr, &asset_type, CMA_LEDGER_OP_FIND_OR_CREATE);
     if (err != CMA_LEDGER_SUCCESS) {
@@ -968,7 +965,7 @@ auto process_erc1155_batch_transfer(cma_ledger_t *ledger, cma_ledger_account_id_
 
     // get asset
     cma_ledger_asset_id_t lass_id;
-    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT;
 
     for (size_t t = 0; t < parser_input->erc1155_batch_transfer.token_ids.length; t++) {
         cma_token_id_t token_id;

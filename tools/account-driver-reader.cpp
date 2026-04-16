@@ -191,10 +191,10 @@ void dump(cma_ledger_memory &ledger) {
         std::cout << "\n  {\n";
         std::cout << "    \"type\": " << balance.type << ",\n";
         std::cout << R"(    "owner": )" << address_to_string(balance.owner) << '"' << ",\n";
-        if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+        if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
             std::cout << R"(    "token_address": )" << address_to_string(balance.token_address) << '"' << ",\n";
         }
-        if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+        if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
             std::cout << R"(    "token_id": )" << b32_to_string(balance.token_id) << '"' << ",\n";
         }
         std::cout << R"(    "amount": )" << b32_to_string(balance.amount) << '"' << ",\n";
@@ -210,10 +210,10 @@ void dump(const cma_ledger_account_balance_info_t &account_balance_info) {
     std::cout << "{\n";
     std::cout << "  \"type\": " << account_balance_info.balance->type << ",\n";
     std::cout << R"(  "owner": )" << address_to_string(account_balance_info.balance->owner) << '"' << ",\n";
-    if (account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+    if (account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
         std::cout << R"(  "token_address": )" << address_to_string(account_balance_info.balance->token_address) << '"' << ",\n";
     }
-    if (account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+    if (account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || account_balance_info.balance->type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
         std::cout << R"(  "token_id": )" << b32_to_string(account_balance_info.balance->token_id) << '"' << ",\n";
     }
     std::cout << R"(  "amount": )" << b32_to_string(account_balance_info.balance->amount) << '"' << ",\n";
@@ -226,10 +226,10 @@ void dump(const cma_ledger_account_balance_t &balance, size_t index, size_t driv
     std::cout << "{\n";
     std::cout << "  \"type\": " << balance.type << ",\n";
     std::cout << R"(  "owner": )" << address_to_string(balance.owner) << '"' << ",\n";
-    if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+    if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
         std::cout << R"(  "token_address": )" << address_to_string(balance.token_address) << '"' << ",\n";
     }
-    if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID){
+    if (balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID || balance.type == CMA_LEDGER_ASSET_TYPE_TOKEN_ADDRESS_ID_AMOUNT){
         std::cout << R"(  "token_id": )" << b32_to_string(balance.token_id) << '"' << ",\n";
     }
     std::cout << R"(  "amount": )" << b32_to_string(balance.amount) << '"' << ",\n";
@@ -399,6 +399,42 @@ auto main(int argc, const char *argv[]) -> int try {
             flash_drive_offset = value_from_string(argv[i + 2]);
             dump_full_proof = true;
             i += 2;
+        } else if (strcmp(argv[i], "--dump-custom-full-proof") == 0) {
+            if (i + 3 >= argc) {
+                throw std::runtime_error{"missing machine snapshot path"};
+            }
+            std::string snapshot_path = argv[i+1];
+            size_t offset = value_from_string(argv[i + 2]);
+            size_t data_size = value_from_string(argv[i + 3]);
+
+            std::string config_path = snapshot_path + "/config.json";
+            if (!std::filesystem::exists(snapshot_path) || !std::filesystem::exists(config_path)) {
+                throw std::runtime_error{std::format("coundn'l find snapshot config '{}' ",config_path)};
+            }
+
+            std::ifstream config_file(config_path);
+            if (!config_file.is_open()) {
+                throw std::runtime_error{std::format("unable to open config '{}'",config_path)};
+            }
+            std::string config_json;
+            std::string line;
+            while (std::getline(config_file, line)) {
+                config_json += line;
+            }
+
+            cm_machine *machine = nullptr;
+            // if (cm_load_new(machine_snapshot_path.c_str(), config_json.c_str(), CM_SHARING_NONE, &machine) != CM_ERROR_OK) { // 0.20.0
+            if (cm_load_new(snapshot_path.c_str(), config_json.c_str(), &machine) != CM_ERROR_OK) {
+              throw std::runtime_error{std::format("failed to load machine: {}", cm_get_last_error_message())};
+            }
+            const char *proof;
+            size_t log2_data_size = static_cast<size_t>(std::log2(static_cast<double>(data_size)));
+
+            if (cm_get_proof(machine, offset, log2_data_size, &proof) != CM_ERROR_OK) {
+              throw std::runtime_error{std::format("couldn't get proof: {}", cm_get_last_error_message())};
+            }
+            std::cout << proof << '\n';
+            return 0;
         } else if (strcmp(argv[i], "--help") == 0) {
             help();
             return 0;
