@@ -103,7 +103,7 @@ tiny_sha3_LIB   := $(third_party_DIR)/tiny_sha3
 emulator_LIB    := $(third_party_DIR)/machine-emulator
 guesttools_LIB    := $(third_party_DIR)/libcmt
 
-third_party_LIBS := $(boost_LIB) $(tiny_sha3_LIB) $(emulator_LIB)
+third_party_LIBS := $(boost_LIB) $(tiny_sha3_LIB) $(emulator_LIB) $(guesttools_LIB)
 
 third-party: $(third_party_LIBS)
 
