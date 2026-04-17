@@ -137,8 +137,11 @@ jobs:
       - name: make tools
         run: |
           make account-driver-reader
+
+      - name: make tar
+        run: |
           mkdir -p ${{ runner.temp }}/artifacts
-          cd build/tools/ && tar zcvf account-driver-reader ${{ runner.temp }}/artifacts/tools.tar.gz
+          cd build/tools/ && tar -zcf ${{ runner.temp }}/artifacts/tools.tar.gz account-driver-reader
 
       - name: Upload release tools
         uses: softprops/action-gh-release@v2
