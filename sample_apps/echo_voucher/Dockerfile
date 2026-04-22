@@ -3,7 +3,7 @@
 ARG IMAGE_NAME=riscv64/alpine
 ARG IMAGE_TAG=3.22.3
 ARG MACHINE_GUEST_TOOLS_VERSION=0.17.1-r1
-ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.5
+ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.7
 ARG MACHINE_ASSET_TOOLS_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 ARG MACHINE_ASSET_TOOLS_DEV_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 
@@ -18,7 +18,13 @@ RUN apk update && \
     apk add cartesi-machine-guest-tools=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_TAR
-ADD ${MACHINE_ASSET_TOOLS_TAR} /
+ADD ${MACHINE_ASSET_TOOLS_TAR} /tmp/cma.tar.gz
+RUN <<EOF
+set -e
+tar -xzf /tmp/cma.tar.gz -C /
+rm /tmp/cma.tar.gz
+EOF
+
 
 
 ### Builder
@@ -33,7 +39,13 @@ RUN apk add \
     cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_DEV_TAR
-ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /
+ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /tmp/cma.tar.gz
+RUN <<EOF
+set -e
+tar -xzf /tmp/cma.tar.gz -C /
+rm /tmp/cma.tar.gz
+EOF
+
 
 WORKDIR /opt/build/app
 

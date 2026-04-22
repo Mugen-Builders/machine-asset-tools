@@ -281,8 +281,7 @@ void dump(const hash_tree_proof &proof, const cma_ledger_account_balance_t &bala
 void help() {
     std::cout << R"(account-driver-reader [options] <drive-filename> [balance params]
   inspect the ledger in the drive file pointed to by <state-filename>
-  if not printing totla, nor dumping all balances, you should set balance params
-  otherwise, the file is opened for modification/inspection
+  if searching for accounts, you should set balance params
 balance params are
   owner address: required
   token address: if asset has token address
@@ -300,14 +299,18 @@ options are
     sets the maximum number of balances in the ledger
   --total
     prints the number of balances to stdout
+  --initialize
+    initialize a new drive file
   --balance-index <index>
     get the balance at this index
   --dump
     dumps all accounts into a JSON array and sends it to stdout
   --dump-proof
     dumps a Merkle proof for the value of the account into a JSON object and sends it to stdout
-  --dump-full-proof <snapshot path>
+  --dump-full-proof <snapshot path> <account drive start>
     dumps a Merkle proof up to the machine root for the value of the account into a JSON object and sends it to stdout
+  --dump-custom-full-proof <snapshot path> <start> <size>
+    dumps a Merkle proof up to the machine root for the data in <start> and <size> into a JSON object and sends it to stdout
   --help
     prints this help message
 )";
@@ -317,6 +320,7 @@ typedef enum : uint8_t {
     NOP,
     DUMP,
     TOTAL,
+    INITIALIZE_DRIVE,
     FIND_INDEX,
     FIND_BASE,
     FIND_TOKEN_ADDRESS,
@@ -391,6 +395,8 @@ auto main(int argc, const char *argv[]) -> int try {
             operation = DUMP;
         } else if (strcmp(argv[i], "--dump-proof") == 0) {
             dump_proof = true;
+        } else if (strcmp(argv[i], "--initialize") == 0) {
+            operation = INITIALIZE_DRIVE;
         } else if (strcmp(argv[i], "--dump-full-proof") == 0) {
             if (i + 2 >= argc) {
                 throw std::runtime_error{"missing machine snapshot path"};
@@ -475,6 +481,18 @@ auto main(int argc, const char *argv[]) -> int try {
 
     if (operation == NOP) {
         throw std::runtime_error{"nothing to do"};
+    }
+
+    if (operation == INITIALIZE_DRIVE) {
+        std::ofstream memfile(memory_file_name, std::ios::binary | std::ios::out);
+        if (ledger_offset + mem_length > 0) {
+            memfile.seekp(ledger_offset + mem_length - 1);
+            memfile.put('\0');
+        }
+        memfile.close();
+        cma_ledger_memory ledger(interprocess::create_only, memory_file_name.c_str(), ledger_offset, mem_length, n_accounts,
+            n_assets, n_balances);
+        return 0;
     }
 
     cma_ledger_memory ledger(interprocess::open_only, memory_file_name.c_str(), ledger_offset, mem_length, n_accounts,
