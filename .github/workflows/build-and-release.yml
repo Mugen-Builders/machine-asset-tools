@@ -11,13 +11,13 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Test Ubuntu
         run: |
@@ -47,13 +47,13 @@ jobs:
           echo "VERSION=${GITHUB_REF##*/v}" >> "$GITHUB_ENV"
           echo "TOOLS_TARGZ=${{ vars.TOOLS_TARGZ || 'machine-asset-tools' }}" >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build
         run: |
@@ -72,7 +72,7 @@ jobs:
           cp build/_deb/machine-asset-tools_riscv64.deb artifacts/${{ env.TOOLS_TARGZ }}_riscv64_v${{ env.VERSION }}.deb
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cma-${{ matrix.images.plat }}
           path: artifacts/*
@@ -92,14 +92,14 @@ jobs:
           mkdir -p ${{ runner.temp }}/artifacts
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/artifacts
           pattern: cma-*
           merge-multiple: true
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           prerelease: true
           files: ${{ runner.temp }}/artifacts/*
@@ -137,7 +137,7 @@ jobs:
           version: 14
           platform: x64
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: setup
         run: |
@@ -153,7 +153,7 @@ jobs:
           cd build/tools/ && tar -zcf ${{ runner.temp }}/artifacts/tools_linux_${{ matrix.arch }}.tar.gz account-driver-reader
 
       - name: Upload release tools
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           prerelease: true
           files: ${{ runner.temp }}/artifacts/*

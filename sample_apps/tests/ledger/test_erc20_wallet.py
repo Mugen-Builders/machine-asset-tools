@@ -155,7 +155,7 @@ def test_should_not_have_balance2(
     hex_payload = str2hex(json.dumps(payload))
     app_client.send_inspect(hex_payload=hex_payload)
 
-    assert app_client.rollup.status
+    assert not app_client.rollup.status
 
     report = app_client.rollup.reports[-1]['data']['payload']
-    assert int(report,16) == 0
+    assert int.from_bytes(bytes.fromhex(report[2:]), byteorder="little") == 1004

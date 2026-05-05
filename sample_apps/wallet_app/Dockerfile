@@ -7,6 +7,7 @@ ARG MACHINE_ASSET_TOOLS_VERSION=0.1.0-alpha.7
 ARG MACHINE_ASSET_TOOLS_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 ARG MACHINE_ASSET_TOOLS_DEV_TAR=https://github.com/Mugen-Builders/machine-asset-tools/releases/download/v${MACHINE_ASSET_TOOLS_VERSION}/machine-asset-tools_musl_riscv64_dev_v${MACHINE_ASSET_TOOLS_VERSION}.tar.gz
 ARG WALLET_APP_CONFIG=config.h
+ARG STATE_FILESIZE=67108864
 
 ### Base
 FROM --platform=linux/riscv64 ${IMAGE_NAME}:${IMAGE_TAG} AS base
@@ -19,11 +20,15 @@ RUN apk update && \
     apk add cartesi-machine-guest-tools=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_TAR
-ADD ${MACHINE_ASSET_TOOLS_TAR} /tmp/cma.tar.gz
+ADD ${MACHINE_ASSET_TOOLS_TAR} /
 RUN <<EOF
 set -e
-tar -xzf /tmp/cma.tar.gz -C /
-rm /tmp/cma.tar.gz
+tarfilename=$(basename ${MACHINE_ASSET_TOOLS_TAR})
+echo $tarfilename
+if [ -f "/$tarfilename" ]; then
+    tar -xzf /$tarfilename -C /
+    rm /$tarfilename
+fi
 EOF
 
 ### Builder
@@ -38,11 +43,15 @@ RUN apk add \
     cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_DEV_TAR
-ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /tmp/cma.tar.gz
+ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /
 RUN <<EOF
 set -e
-tar -xzf /tmp/cma.tar.gz -C /
-rm /tmp/cma.tar.gz
+tarfilename=$(basename ${MACHINE_ASSET_TOOLS_DEV_TAR})
+echo $tarfilename
+if [ -f "/$tarfilename" ]; then
+    tar -xzf /$tarfilename -C /
+    rm /$tarfilename
+fi
 EOF
 
 
@@ -55,6 +64,20 @@ ARG WALLET_APP_CONFIG
 COPY ${WALLET_APP_CONFIG} config.h
 
 RUN make
+
+### State
+FROM --platform=linux/riscv64 builder AS state-builder
+
+WORKDIR /opt/build/app/data
+
+ARG STATE_FILESIZE
+RUN dd if=/dev/zero of=/opt/build/app/data/state.bin count=1 bs=1 seek=$((${STATE_FILESIZE} - 1))
+
+RUN /opt/build/app/build/app /opt/build/app/data/state.bin 1
+
+FROM --platform=linux/riscv64 scratch AS state
+
+COPY --from=state-builder /opt/build/app/data/state.bin /
 
 ### App
 FROM --platform=linux/riscv64 scratch AS app

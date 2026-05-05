@@ -18,11 +18,15 @@ RUN apk update && \
     apk add cartesi-machine-guest-tools=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_TAR
-ADD ${MACHINE_ASSET_TOOLS_TAR} /tmp/cma.tar.gz
+ADD ${MACHINE_ASSET_TOOLS_TAR} /
 RUN <<EOF
 set -e
-tar -xzf /tmp/cma.tar.gz -C /
-rm /tmp/cma.tar.gz
+tarfilename=$(basename ${MACHINE_ASSET_TOOLS_TAR})
+echo $tarfilename
+if [ -f "/$tarfilename" ]; then
+    tar -xzf /$tarfilename -C /
+    rm /$tarfilename
+fi
 EOF
 
 
@@ -39,11 +43,15 @@ RUN apk add \
     cartesi-machine-guest-libcmt-dev=${MACHINE_GUEST_TOOLS_VERSION}
 
 ARG MACHINE_ASSET_TOOLS_DEV_TAR
-ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /tmp/cma.tar.gz
+ADD ${MACHINE_ASSET_TOOLS_DEV_TAR} /
 RUN <<EOF
 set -e
-tar -xzf /tmp/cma.tar.gz -C /
-rm /tmp/cma.tar.gz
+tarfilename=$(basename ${MACHINE_ASSET_TOOLS_DEV_TAR})
+echo $tarfilename
+if [ -f "/$tarfilename" ]; then
+    tar -xzf /$tarfilename -C /
+    rm /$tarfilename
+fi
 EOF
 
 

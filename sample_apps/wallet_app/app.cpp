@@ -291,7 +291,7 @@ auto inspect_state(cmt_rollup_t *rollup, cma_ledger_t *ledger) -> bool try {
   std::ignore =
       std::fprintf(stderr, "[app] app exception caught: (%d) %s\n",
                    e.code(), e.what());
-    std::ignore = rollup_emit_report(rollup, error_report{e.code()});
+    std::ignore = rollup_emit_report(rollup, error_report{-e.code()});
     return false;
 } catch (const std::exception &e) {
     std::ignore =
@@ -578,6 +578,59 @@ auto process_erc1155_batch_deposit(cma_ledger_t *ledger, cmt_rollup_advance_t *i
     std::ignore = std::fprintf(stdout,"\n");
 }
 
+auto is_zero(const cma_amount_t &amount) -> bool {
+    static const cma_amount_t zero = {.data = {0}};
+    return std::memcmp(amount.data, zero.data, sizeof(amount.data)) == 0;
+}
+
+auto check_and_remove_asset(cma_ledger_t *ledger, cma_ledger_asset_id_t lass_id) -> void {
+    if (lass_id == get_ether_id_storage()) {
+        return;
+    }
+
+    cma_amount_t supply;
+    cma_ledger_asset_type_t asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    int err = cma_ledger_retrieve_asset(ledger, &lass_id, nullptr, nullptr, &supply, &asset_type, CMA_LEDGER_OP_FIND);
+    if (err != CMA_LEDGER_SUCCESS) {
+        throw AppException(std::string("unable to retrieve asset: ")
+            .append(cma_ledger_get_last_error_message()).c_str(), err);
+    }
+
+    if (!is_zero(supply)) {
+        return;
+    }
+
+    asset_type = CMA_LEDGER_ASSET_TYPE_ID;
+    err = cma_ledger_retrieve_asset(ledger, &lass_id, nullptr, nullptr, nullptr, &asset_type, CMA_LEDGER_OP_FIND_AND_REMOVE);
+    if (err != CMA_LEDGER_SUCCESS) {
+        throw AppException(std::string("unable to remove asset: ")
+            .append(cma_ledger_get_last_error_message()).c_str(), err);
+    }
+}
+
+auto check_and_remove_account(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_id) -> void {
+    size_t n_balances;
+    cma_ledger_account_type_t account_type = CMA_LEDGER_ACCOUNT_TYPE_ID;
+    int err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, nullptr,
+        &n_balances, &account_type, CMA_LEDGER_OP_FIND);
+    if (err != CMA_LEDGER_SUCCESS) {
+        throw AppException(std::string("unable to retrieve account: ")
+            .append(cma_ledger_get_last_error_message()).c_str(), err);
+    }
+
+    if (n_balances != 0) {
+        return;
+    }
+
+    account_type = CMA_LEDGER_ACCOUNT_TYPE_ID;
+    err = cma_ledger_retrieve_account(ledger, &lacc_id, nullptr, nullptr,
+        nullptr, &account_type, CMA_LEDGER_OP_FIND_AND_REMOVE);
+    if (err != CMA_LEDGER_SUCCESS) {
+        throw AppException(std::string("unable to remove account: ")
+            .append(cma_ledger_get_last_error_message()).c_str(), err);
+    }
+}
+
 auto process_ether_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger_t *ledger, cma_ledger_account_id_t lacc_id,
         cma_ledger_account_t *account_id, cma_parser_input_t *parser_input) -> void {
     std::ignore = std::fprintf(stdout,"[app] received ether withdrawal\n");
@@ -589,6 +642,9 @@ auto process_ether_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger_
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
 
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
+
     // encode voucher
     cma_parser_voucher_data_t voucher_req = {};
     std::ignore =
@@ -597,7 +653,6 @@ auto process_ether_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger_
         std::begin(voucher_req.ether.amount.data));
 
     cma_voucher_t voucher = {};
-
     err = cma_parser_encode_voucher(CMA_PARSER_VOUCHER_TYPE_ETHER, nullptr, &voucher_req, &voucher);
     if (err < 0) {
         throw AppException(std::string("unable to encode ether voucher: ")
@@ -632,6 +687,10 @@ auto process_erc20_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger_
         throw AppException(std::string("unable to withdraw erc20: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
+
+    // remove empty accounts and assets
+    check_and_remove_account(ledger, lacc_id);
+    check_and_remove_asset(ledger, lass_id);
 
     // encode voucher
     cma_parser_voucher_data_t voucher_req = {};
@@ -680,6 +739,10 @@ auto process_erc721_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma_ledger
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
 
+    // remove empty accounts and assets
+    check_and_remove_account(ledger, lacc_id);
+    check_and_remove_asset(ledger, lass_id);
+
     // encode voucher
     cma_parser_voucher_data_t voucher_req = {};
     std::ignore =
@@ -726,6 +789,10 @@ auto process_erc1155_single_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cm
         throw AppException(std::string("unable to withdraw erc1155_single: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
+
+    // remove empty accounts and assets
+    check_and_remove_account(ledger, lacc_id);
+    check_and_remove_asset(ledger, lass_id);
 
     // encode voucher
     cma_parser_voucher_data_t voucher_req = {};
@@ -784,8 +851,15 @@ auto process_erc1155_batch_withdrawal_and_send_voucher(cmt_rollup_t *rollup, cma
             throw AppException(std::string("unable to withdraw erc1155_batch: ")
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
         }
+
+        // remove empty assets
+        check_and_remove_asset(ledger, lass_id);
+
     }
     std::ignore = std::fprintf(stdout,"[app] withdrew tokens from ledger\n");
+
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
 
     // encode voucher
     cma_parser_voucher_data_t voucher_req = {};
@@ -848,6 +922,9 @@ auto process_ether_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_i
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
 
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
+
     std::ignore = std::fprintf(stdout,"[app] ether transfered\n");
 }
 
@@ -880,6 +957,9 @@ auto process_erc20_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_i
         throw AppException(std::string("unable to transfer erc20: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
+
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
 
     std::ignore = std::fprintf(stdout,"[app] erc20 transfered\n");
 }
@@ -914,6 +994,9 @@ auto process_erc721_transfer(cma_ledger_t *ledger, cma_ledger_account_id_t lacc_
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
 
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
+
     std::ignore = std::fprintf(stdout,"[app] erc721 transfered\n");
 }
 
@@ -946,6 +1029,9 @@ auto process_erc1155_single_transfer(cma_ledger_t *ledger, cma_ledger_account_id
         throw AppException(std::string("unable to transfer erc1155_single: ")
             .append(cma_ledger_get_last_error_message()).c_str(), err);
     }
+
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
 
     std::ignore = std::fprintf(stdout,"[app] erc1155_single transfered\n");
 }
@@ -988,6 +1074,9 @@ auto process_erc1155_batch_transfer(cma_ledger_t *ledger, cma_ledger_account_id_
                 .append(cma_ledger_get_last_error_message()).c_str(), err);
         }
     }
+
+    // remove empty accounts
+    check_and_remove_account(ledger, lacc_id);
 
     std::ignore = std::fprintf(stdout,"[app] erc1155_batch transfered\n");
 }
@@ -1120,7 +1209,7 @@ auto advance_state(cmt_rollup_t *rollup, cma_ledger_t *ledger) -> bool try {
   std::ignore =
       std::fprintf(stderr, "[app] app exception caught: (%d) %s\n",
                    e.code(), e.what());
-    std::ignore = rollup_emit_report(rollup, error_report{e.code()});
+    std::ignore = rollup_emit_report(rollup, error_report{-e.code()});
     return false;
 } catch (const std::exception &e) {
     std::ignore =
